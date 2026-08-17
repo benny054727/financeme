@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>FinanceMe — בדיקות מנוע חישוב</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:'Heebo','Arial Hebrew',sans-serif;background:#0f172a;color:#e2e8f0;padding:20px;max-width:760px;margin:0 auto;line-height:1.6}
+h1{font-size:20px;margin-bottom:6px}
+p.sub{color:#94a3b8;font-size:13px;margin-bottom:20px}
+#summary{font-size:22px;font-weight:900;margin:18px 0;padding:16px;border-radius:14px}
+#summary.ok{background:#0ead6922;color:#4ade80;border:1px solid #0ead6955}
+#summary.bad{background:#e5383b22;color:#f87171;border:1px solid #e5383b55}
+h3{margin:22px 0 8px;font-size:14px;color:#93c5fd;border-bottom:1px solid #334155;padding-bottom:6px}
+.case{padding:7px 0;font-size:13px;border-bottom:1px solid #1e293b}
+.pass{color:#4ade80;font-weight:700}
+.fail{color:#f87171;font-weight:700}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<h1>🧪 FinanceMe — בדיקות מנוע החישוב (CALC / LOANS)</h1>
+<p class="sub">
+  דף עצמאי ובטוח לגמרי: לא נוגע בנתונים האמיתיים שלך (Supabase מדומה, לא נשמר כלום ל-localStorage/לענן).
+  מריץ תרחישים ידועים מראש דרך אותן פונקציות חישוב בדיוק שהאפליקציה משתמשת בהן, ומוודא שהתוצאה נכונה.
+  אחרי כל שינוי עתידי בנוסחאות — פותחים את הדף הזה ובודקים שהכל עדיין ✅ ירוק.
+</p>
+<div id="summary">מריץ בדיקות...</div>
+<div id="results"></div>
+
+<!-- מוקים מינימליים כדי ש-app.js ייטען בלי לקרוס (הוא מצפה ל-Supabase ולכמה אלמנטים ב-DOM) -->
+<div id="login" class="hide"></div>
+<div id="setup" class="hide"></div>
+<div id="app" class="hide"></div>
+<nav id="nav" class="hide"></nav>
+<button id="fab" class="hide"></button>
+<div id="syncBadge"></div>
+
+<script>
+/* מוק מינימלי ל-Supabase — לא מתחבר לשום שרת אמיתי, רק מונע קריסה בטעינת app.js */
+window.supabase = {
+  createClient: () => ({
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe(){} } } }),
+      signInWithPassword: async () => ({ data:null, error:{message:'mock'} }),
+      signUp: async () => ({ data:null, error:{message:'mock'} }),
+      signOut: async () => ({ error:null })
+    },
+    from: () => ({
+      upsert: async () => ({ data:null, error:null }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data:null, error:null }) }) })
+    })
+  })
+};
+</script>
+<script src="app.js"></script>
+<script>
+/* ============================================================
+   מריצים כאן — חשוב: אף פונקציה כאן לא קוראת ל-save()/load()/genRecurring()/boot(),
+   רק מתעסקת ישירות במשתנה DB בזיכרון ובפונקציות CALC/LOANS הטהורות. שום דבר לא נשמר.
+   ============================================================ */
+let pass=0, fail=0;
+const out=document.getElementById('results');
+
+function eq(actual, expected, label){
+  const tol=0.01;
+  const ok = typeof expected==='number' ? Math.abs(actual-expected)<=tol : actual===expected;
+  const div=document.createElement('div');
+  div.className='case';
+  div.innerHTML=(ok?'<span class="pass">✅ עבר</span>':'<span class="fail">❌ נכשל</span>')+
+    ' — '+label+' <span style="color:#64748b">| ציפייה: <b>'+expected+'</b>, בפועל: <b>'+actual+'</b></span>';
+  out.appendChild(div);
+  ok?pass++:fail++;
+}
+function scenario(name, fn){
+  const h=document.createElement('h3');h.textContent='▶ '+name;out.appendChild(h);
+  fn();
+}
+function freshDB(){ DB = blank(); DB.meta.setupDone = true; return DB; }
+
+// "היום" קבוע לצורך בדיקות דטרמיניסטיות — בלי זה, בדיקות שתלויות בתאריך היו נותנות
+// תוצאה שונה כל יום. today() מוגדרת ב-app.js כפונקציה גלובלית רגילה, אז אפשר לדרוס אותה.
+const realToday = window.today;
+window.today = () => new Date(2026, 7, 17); // 17/8/2026
+
+scenario('יתרה בבנק — עוגן + דלתא (לא סופרים תנועה פעמיים)', () => {
+  const D = freshDB();
+  D.account.openingBalance = 10300;
+  D.account.openingDate = '2026-08-15';
+  D.transactions = [
+    {id:'t1', direction:'out', amount:4600, method:'account', chargeDate:'2026-08-10', date:'2026-08-10', categoryId:'c_rent'},
+    {id:'t2', direction:'out', amount:200,  method:'account', chargeDate:'2026-08-16', date:'2026-08-16', categoryId:'c_food'},
+    {id:'t3', direction:'out', amount:300,  method:'account', chargeDate:'2026-09-10', date:'2026-08-16', categoryId:'c_super'},
+    {id:'t4', direction:'out', amount:50,   method:'cash',    chargeDate:'2026-08-16', date:'2026-08-16', categoryId:'c_food'}
+  ];
+  eq(CALC.balance(), 10100, 'תנועה שירדה לפני תאריך העדכון לא נספרת שוב; מזומן ותנועה עתידית גם לא');
+});
+
+scenario('יתרה זמינה — יתרה פחות כל חיוב עתידי (גם אם רק בחודש הבא)', () => {
+  const D = freshDB();
+  D.account.openingBalance = 10300;
+  D.account.openingDate = '2026-08-15';
+  D.transactions = [
+    {id:'p1', direction:'out', amount:300, method:'account', chargeDate:'2026-09-10', date:'2026-08-15', categoryId:'c_ins_car'},
+    {id:'p2', direction:'out', amount:300, method:'account', chargeDate:'2026-09-10', date:'2026-08-15', categoryId:'c_super'},
+    {id:'p3', direction:'out', amount:125, method:'account', chargeDate:'2026-09-10', date:'2026-08-15', categoryId:'c_net'}
+  ];
+  const av = CALC.available();
+  eq(av.balance, 10300, 'יתרה בבנק');
+  eq(av.pending, 725, 'טרם ירד = 300+300+125');
+  eq(av.available, 9575, 'זמינה = יתרה פחות טרם ירד');
+});
+
+scenario('סיכום חודשי — חלוקה נכונה קבועות/משתנות/חיסכון/הכנסות', () => {
+  const D = freshDB();
+  D.transactions = [
+    {id:'m1', direction:'in',  amount:10500, method:'account', date:'2026-08-08', chargeDate:'2026-08-08', categoryId:'c_salary', incomeType:'salary'},
+    {id:'m2', direction:'out', amount:4600,  method:'account', date:'2026-08-10', chargeDate:'2026-08-10', categoryId:'c_rent'},
+    {id:'m3', direction:'out', amount:300,   method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_super'},
+    {id:'m4', direction:'out', amount:1500,  method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_save'}
+  ];
+  const m = CALC.month('2026-08');
+  eq(m.income, 10500, 'הכנסות');
+  eq(m.fixed, 4600, 'הוצאות קבועות');
+  eq(m.variable, 300, 'הוצאות משתנות');
+  eq(m.saving, 1500, 'חיסכון (לא נכלל ב"הוצאות")');
+  eq(m.out, 4900, 'סה"כ הוצאות = קבועות + משתנות בלבד');
+  eq(m.free, 4100, 'פנוי = הכנסות - הוצאות - חיסכון');
+});
+
+scenario('תאריך חיוב אשראי — cutoff וקפיצת חודש', () => {
+  const card = {cutoffDay:10, chargeDay:5};
+  eq(CALC.chargeDate('2026-08-05', card), '2026-09-05', 'רכישה עד ה-cutoff → מחויבת בחודש הבא');
+  eq(CALC.chargeDate('2026-08-15', card), '2026-10-05', 'רכישה אחרי ה-cutoff → מחויבת בעוד חודשיים');
+  eq(CALC.chargeDate('2026-08-05', null), '2026-08-05', 'בלי כרטיס (מעו"ש) — התאריך לא זז');
+});
+
+scenario('מנוע הלוואות — הלוואה בריבית 0% (בדיקת שפיות בסיסית)', () => {
+  freshDB();
+  const loan = {
+    id:'l1', name:'בדיקה', startDate:'2026-02-17', payDay:10,
+    tracks:[{type:'fixed', fixedRate:0, principal:12000, termMonths:12}]
+  };
+  const calc = LOANS.loanCalc(loan);
+  eq(Math.round(calc.totalPayment), 1000, 'תשלום חודשי = 12000/12 (ריבית 0%)');
+  eq(Math.round(calc.totalBalance), 6000, '6 חודשים חלפו מתחילת ההלוואה → נשארה מחצית');
+});
+
+window.today = realToday;
+
+const summary=document.getElementById('summary');
+summary.className = fail===0 ? 'ok' : 'bad';
+summary.textContent = fail===0
+  ? '✅ כל '+pass+' הבדיקות עברו בהצלחה'
+  : '❌ '+fail+' בדיקות נכשלו מתוך '+(pass+fail)+' — משהו בנוסחאות השתנה, כדאי לבדוק לפני שממשיכים';
+</script>
+</body>
+</html>
