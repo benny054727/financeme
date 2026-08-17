@@ -495,17 +495,19 @@ function vHome(){
   const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
   const pct=m.incomeBase>0?Math.min(100,Math.round((m.out+loanPay)/m.incomeBase*100)):0;
+  // תחזית לסוף החודש — לפי בקשת המשתמש: נוסחה פשוטה וקבועה, יתרה בבנק פחות סך כל ההוצאות
+  // שנרשמו החודש (קבועות+משתנות+הלוואה), בלי קשר לתאריך החיוב של כל תנועה בנפרד
+  const forecastEnd=av.balance-(m.out+loanPay);
   let h='';
   h+='<div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">'+
      '<div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 6px 16px rgba(37,99,235,.3)">👋</div>'+
      '<div><div style="font-size:15.5px;font-weight:800">שלום!</div><div class="mini">'+todayLabel()+'</div></div></div>';
-  h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>יתרה זמינה אמיתית</div>'+
-     '<div class="hamt '+(av.available<0?'neg':'')+'">'+fmtS(av.available)+'</div>'+
+  h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>תחזית לסוף החודש</div>'+
+     '<div class="hamt '+(forecastEnd<0?'neg':'')+'">'+fmtS(forecastEnd)+'</div>'+
      '<div class="hrow">'+
      '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
-     '<div class="hcell"><div class="cl">תחזית לסוף החודש</div><div class="cv" style="color:'+(av.available<0?'var(--expense)':'var(--income)')+'">'+fmtS(av.available)+'</div></div>'+
      '</div>'+
-     (av.pending>0?'<div class="mini" style="margin-top:12px;line-height:1.6">💡 "תחזית לסוף החודש" כבר מביאה בחשבון את כל ההוצאות הקבועות, המשתנות וההלוואות שנרשמו ועדיין לא ירדו בפועל, כל אחת לפי התאריך הצפוי לה — גם אם זה רק בחודש הבא.</div>':'')+
+     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות וההלוואה שנרשמו החודש ('+fmt(m.out+loanPay)+').</div>'+
      '</div>';
   h+='<div class="kpi">'+
      '<div class="kcard inc"><div class="klbl"><span class="dot"></span>הכנסות</div><div class="kamt">'+fmt(m.income)+'</div></div>'+
