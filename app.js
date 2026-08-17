@@ -704,6 +704,18 @@ function vExpenses(){
       '</div>';
   });
   h+='</div>';
+  // פירוט חזותי לפי קטגוריה — אותו רכיב עוגה בדיוק כמו "חלוקת החודש" בדף הבית,
+  // בנוסף לרשימת הקטגוריות עם התקציב למעלה (לא במקומה — שני הצגות משלימות)
+  if(rows.length){
+    const palette=['#2563eb','#0ead69','#d97706','#e5383b','#7c3aed','#0891b2','#db2777','#65a30d','#f59e0b','#64748b'];
+    const donutItems=rows.filter(r=>r.v>0).map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length]}));
+    if(donutItems.length)h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי קטגוריה</div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
+  }
+  // רשימת התנועות בפועל, לפי שם — כמו "תנועות אחרונות" בדף הבית, רק מסוננת לטאב ולחודש המוצגים
+  const txsAll=DB.transactions.filter(x=>ym(x.date)===y&&CALC.cat(x.categoryId).kind===expTab).sort((a,b)=>b.date<a.date?-1:1);
+  h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות<span class="sright">'+txsAll.length+'</span></div>';
+  h+=txsAll.length?txsAll.map(txRow).join(''):'<div class="empty"><b>אין תנועות בחודש זה</b></div>';
+  h+='</div>';
   if(expTab==='fixed'){
     // כדי לא לבלבל בין "הוצאה בפועל" (הקופסה למעלה) ל"כלל שיצר אותה" (כאן) — הקטגוריות
     // הבודדות למעלה כבר מספרות את כל הסיפור הכספי, אז מקפלים את הרשימה הזו כברירת מחדל
