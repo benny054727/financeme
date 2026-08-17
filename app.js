@@ -674,7 +674,14 @@ function vExpenses(){
   if(!rows.length)h+='<div class="empty"><b>אין הוצאות בחודש זה</b>לחץ + כדי לרשום</div>';
   rows.forEach(r=>{
     const bud=r.c.budget||0,p=bud>0?Math.min(100,(r.v/bud)*100):0,over=bud>0&&r.v>bud;
-    h+='<div class="eitem tap" style="display:block;padding:13px 0" onclick="categoryDetail(\''+r.c.id+'\')"><div style="display:flex;align-items:center;gap:12px">'+
+    // קיצור דרך: קטגוריה עם תנועה בודדת החודש ובלי הוראת קבע פעילה שמגבה אותה —
+    // אין טעם לעצור במסך ביניים (שרק מסביר שאין הוראת קבע ומראה את אותה תנועה יחידה),
+    // עוברים ישר לעריכת התנועה עצמה. קטגוריה עם כמה תנועות, או שמגובה בהוראת קבע
+    // (ששם יש ערך אמיתי במסך הביניים — לינק לעריכת ההוראה) ממשיכות כרגיל ל-categoryDetail
+    const catTxs=DB.transactions.filter(x=>x.categoryId===r.c.id&&ym(x.date)===y);
+    const catRec=DB.recurring.find(x=>x.categoryId===r.c.id&&x.direction!=='in'&&x.active);
+    const target=(!catRec&&catTxs.length===1)?'openTx(\''+catTxs[0].id+'\')':'categoryDetail(\''+r.c.id+'\')';
+    h+='<div class="eitem tap" style="display:block;padding:13px 0" onclick="'+target+'"><div style="display:flex;align-items:center;gap:12px">'+
       '<div class="eico">'+r.c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.c.name)+'</div>'+
       (bud>0?'<div class="etag">תקציב '+fmt(bud)+(over?' · חריגה של '+fmt(r.v-bud):'')+'</div>':'')+
       '</div><div class="eamt">'+fmt(r.v)+'</div></div>'+
