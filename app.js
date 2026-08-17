@@ -444,6 +444,9 @@ function alerts(){
   // הלוואה היא הוצאה חודשית קבועה כמו כל אחרת — אם היא לא נכנסת לכל חישוב "כמה יצא
   // החודש", ההתראות "יתרה חיובית"/"תקציב גבוה" ייתנו תמונה ורודה מדי למי שיש לו הלוואה
   const loanPay=LOANS.allMonthlyTotal();
+  // אותה נוסחה בדיוק כמו "תחזית לסוף החודש" בדף הבית — כדי שההתראה "יתרה חיובית"
+  // תמיד תציג את אותו מספר, ולא נוסחה ישנה ושונה (הכנסה פחות הוצאות) שיכולה לסתור אותה
+  const forecastEnd=av.balance-(m.out+loanPay+m.saving);
   const od=-Math.abs(S.overdraftLimit||0);
   if(fw.min.bal<od){A.push({s:'crit',i:'🚨',t:'צפויה חריגה ממסגרת',d:'ב-'+fw.min.day+' לחודש (בתוך '+lbd+' הימים הקרובים) היתרה צפויה להיות '+fmtS(fw.min.bal)+'. חייב לפעול עכשיו.'});}
   else if(fw.min.bal<0){A.push({s:'crit',i:'🔴',t:'צפוי מינוס בחשבון',d:'היתרה צפויה לרדת ל-'+fmtS(fw.min.bal)+' ב-'+fw.min.day+' לחודש — בתוך '+lbd+' הימים הקרובים.'});}
@@ -464,7 +467,7 @@ function alerts(){
   const big=DB.transactions.filter(x=>ym(x.date)===y&&x.direction==='out'&&m.incomeBase>0&&x.amount>m.incomeBase*.15);
   if(big.length){const b=big.sort((a,c)=>c.amount-a.amount)[0];A.push({s:'note',i:'🔍',t:'הוצאה חריגה',d:(b.note||CALC.cat(b.categoryId).name)+' — '+fmt(b.amount)+', מעל 15% מההכנסה.'});}
   if(m.saveRate>20){A.push({s:'good',i:'🌟',t:'חודש חזק',d:'הפרשת '+Math.round(m.saveRate)+'% מההכנסה לחיסכון. ככה ממשיכים.'});}
-  else if((m.free-loanPay)>0&&m.income>0){A.push({s:'good',i:'📈',t:'יתרה חיובית',d:'נשארו '+fmt(m.free-loanPay)+' פנויים החודש.'});}
+  else if(forecastEnd>0){A.push({s:'good',i:'📈',t:'יתרה חיובית',d:'צפויים להישאר '+fmt(forecastEnd)+' בבנק בסוף החודש.'});}
   // תזכורת גיבוי אקטיבית — localStorage לא בטוח (סאפרי בנייד מוחק אחרי אי-שימוש),
   // אז מזכירים אם יש נתונים משמעותיים ולא יוצא גיבוי מעולם / כבר 20+ יום
   if(DB.transactions.length>3){
