@@ -646,7 +646,7 @@ function vCards(){
   if(ik.length){
     h+='<div class="box" style="margin-top:16px"><div class="stitle"><span>🧾</span> תשלומים פעילים</div>';
     ik.forEach(k=>{const g=ins[k],c=CALC.cat(g.cat);
-      h+='<div class="eitem"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(g.note||c.name)+'</div>'+
+      h+='<div class="eitem tap" onclick="installmentGroupDetail(\''+k+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(g.note||c.name)+'</div>'+
         '<div class="etag">תשלום '+g.next+' מתוך '+g.total+' · נותרו '+g.left+'</div></div>'+
         '<div class="eside"><div class="eamt">'+fmt(g.sum)+'</div><div class="edate">נותר לשלם</div></div></div>';});
     h+='</div>';
@@ -684,32 +684,16 @@ function vExpenses(){
     '<span class="mini">לעומת '+ymLabel(addM(y,-1))+'</span>'+
     '<span style="font-weight:800;font-size:14px;color:'+(dl>0?'var(--expense)':'var(--income)')+'">'+(dl>0?'▲ ':'▼ ')+Math.abs(Math.round(dl))+'%</span></div></div>';}
   const cats=DB.categories.filter(c=>c.kind===expTab);
-  const rows=cats.map(c=>({c:c,v:m.byCat[c.id]||0})).filter(r=>r.v>0||(expTab==='variable'&&r.c.budget>0)).sort((a,b)=>b.v-a.v);
-  h+='<div class="box"><div class="stitle"><span>'+(expTab==='fixed'?'🔁':'🛒')+'</span> '+(expTab==='fixed'?'הוצאות קבועות':'הוצאות משתנות')+'<span class="sright">'+fmt(cur)+'</span></div>';
-  if(!rows.length)h+='<div class="empty"><b>אין הוצאות בחודש זה</b>לחץ + כדי לרשום</div>';
-  rows.forEach(r=>{
-    const bud=r.c.budget||0,p=bud>0?Math.min(100,(r.v/bud)*100):0,over=bud>0&&r.v>bud;
-    // קיצור דרך: קטגוריה עם תנועה בודדת החודש ובלי הוראת קבע פעילה שמגבה אותה —
-    // אין טעם לעצור במסך ביניים (שרק מסביר שאין הוראת קבע ומראה את אותה תנועה יחידה),
-    // עוברים ישר לעריכת התנועה עצמה. קטגוריה עם כמה תנועות, או שמגובה בהוראת קבע
-    // (ששם יש ערך אמיתי במסך הביניים — לינק לעריכת ההוראה) ממשיכות כרגיל ל-categoryDetail
-    const catTxs=DB.transactions.filter(x=>x.categoryId===r.c.id&&ym(x.date)===y);
-    const catRec=DB.recurring.find(x=>x.categoryId===r.c.id&&x.direction!=='in'&&x.active);
-    const target=(!catRec&&catTxs.length===1)?'openTxSmart(\''+catTxs[0].id+'\')':'categoryDetail(\''+r.c.id+'\')';
-    h+='<div class="eitem tap" style="display:block;padding:13px 0" onclick="'+target+'"><div style="display:flex;align-items:center;gap:12px">'+
-      '<div class="eico">'+r.c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.c.name)+'</div>'+
-      (bud>0?'<div class="etag">תקציב '+fmt(bud)+(over?' · חריגה של '+fmt(r.v-bud):'')+'</div>':'')+
-      '</div><div class="eamt">'+fmt(r.v)+'</div></div>'+
-      (bud>0?'<div class="gbar" style="margin-top:9px;height:6px"><i style="width:'+p+'%;background:'+(over?'var(--expense)':'linear-gradient(90deg,#0ead69,#34d399)')+'"></i></div>':'')+
-      '</div>';
-  });
-  h+='</div>';
-  // פירוט חזותי לפי קטגוריה — אותו רכיב עוגה בדיוק כמו "חלוקת החודש" בדף הבית,
-  // בנוסף לרשימת הקטגוריות עם התקציב למעלה (לא במקומה — שני הצגות משלימות)
+  const rows=cats.map(c=>({c:c,v:m.byCat[c.id]||0})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  // פירוט לפי קטגוריה — עוגה במקום רשימת שורות (חסך מקום, בלי לאבד מידע): שם וסכום
+  // כבר רואים במקרא של העוגה, ולחיצה על עיגול/שורה בעוגה פותחת חלונית עם הפרטים
+  // המלאים כולל תקציב־מול־בפועל (רלוונטי בעיקר למשתנות — לקבועות אין תקציב מוגדר בכלל)
   if(rows.length){
     const palette=['#2563eb','#0ead69','#d97706','#e5383b','#7c3aed','#0891b2','#db2777','#65a30d','#f59e0b','#64748b'];
-    const donutItems=rows.filter(r=>r.v>0).map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length]}));
-    if(donutItems.length)h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי קטגוריה</div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
+    const donutItems=rows.map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length],click:'catSummary(\''+r.c.id+'\')'}));
+    h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי קטגוריה<span class="sright">'+fmt(cur)+'</span></div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
+  }else{
+    h+='<div class="box"><div class="empty"><b>אין הוצאות בחודש זה</b>לחץ + כדי לרשום</div></div>';
   }
   // רשימת התנועות בפועל, לפי שם — כמו "תנועות אחרונות" בדף הבית, רק מסוננת לטאב ולחודש המוצגים
   const txsAll=DB.transactions.filter(x=>ym(x.date)===y&&CALC.cat(x.categoryId).kind===expTab).sort((a,b)=>b.date<a.date?-1:1);
@@ -741,46 +725,6 @@ function restoreSkippedRec(recId){
   const id='rec_'+recId+'_'+curYM();
   DB.meta.skipRec=DB.meta.skipRec.filter(x=>x!==id);
   genRecurring();closeSheet();render();toast('התנועה שוחזרה');
-}
-/* פירוט הוצאות לפי קטגוריה (מהחודש המוצג) — כדי שאפשר יהיה לערוך/למחוק כל הוצאה בודדת,
-   לא רק לראות סכום מצטבר */
-function categoryDetail(catId){
-  const c=CALC.cat(catId),y=selYM||curYM();
-  const txs=DB.transactions.filter(x=>x.categoryId===catId&&ym(x.date)===y).sort((a,b)=>b.date<a.date?-1:1);
-  let h='';
-  if(c.kind==='fixed'){
-    // "קבועה" היא סיווג של הקטגוריה, לא הבטחה שהיא תיווצר אוטומטית — רק הוראת קבע
-    // עושה את זה. מציגים כאן במפורש אם יש כזו, ואם לא — מציעים ליצור אחת.
-    const rec=DB.recurring.find(r=>r.categoryId===catId&&r.direction!=='in'&&r.active);
-    if(rec){
-      // אם התנועה של החודש הנוכחי נמחקה ידנית בעבר (skipRec), ההוראה עצמה עדיין
-      // פעילה אבל החודש הזה "ריק" בכוונה — נותנים דרך לשחזר את זה בלחיצה אחת
-      const expectedId='rec_'+rec.id+'_'+curYM(),skippedThisMonth=DB.meta.skipRec.includes(expectedId)&&!DB.transactions.some(t=>t.id===expectedId);
-      h+='<div class="note" style="margin-bottom:16px">🔁 מגובה ע"י הוראת קבע <b>'+esc(rec.name)+'</b> — '+fmt(rec.amount)+' בכל '+rec.dayOfMonth+' לחודש'+(rec.installmentTotal?' · '+rec.installmentTotal+' תשלומים':'')+'.<br/><button class="lnk" onclick="openRecurring(\''+rec.id+'\')" style="color:var(--balance)">לעריכת ההוראה</button>'+
-        (skippedThisMonth?'<br/>⚠️ התנועה של החודש הזה נמחקה בעבר ולא תיווצר מחדש לבד. <button class="lnk" onclick="restoreSkippedRec(\''+rec.id+'\')" style="color:var(--expense)">שחזר את התנועה</button>':'')+
-        '</div>';
-    }else{
-      h+='<div class="note" style="margin-bottom:16px">⚠️ הקטגוריה מסומנת "קבועה" אבל אין לה הוראת קבע פעילה — היא לא תיווצר אוטומטית כל חודש, רק כשתירשם ידנית.<br/><button class="lnk" onclick="openRecurring(null,\''+catId+'\')" style="color:var(--balance)">הפוך להוראת קבע</button></div>';
-    }
-  }
-  // רכישה חד-פעמית שפוצלה לתשלומים באשראי (לא הוראת קבע — מנגנון נפרד, סעיף 4.2) —
-  // לזה אין "הגדרה" אחת לערוך, אז מרכזים כאן את כל הסדרה עם גישה ישירה לעריכה/מחיקה
-  const instGroups={};
-  DB.transactions.forEach(x=>{if(x.categoryId===catId&&x.installment&&!x.recurringId)(instGroups[x.installment.groupId]=instGroups[x.installment.groupId]||[]).push(x);});
-  const gids=Object.keys(instGroups);
-  if(gids.length){
-    h+='<div class="stitle" style="font-size:13px;margin:4px 0 10px">🧾 תשלומים פעילים</div>';
-    gids.forEach(gid=>{
-      const g=instGroups[gid].sort((a,b)=>a.installment.index-b.installment.index),f=g[0];
-      const paid=g.filter(t=>t.chargeDate<=iso(today())).length;
-      h+='<div class="eitem tap" onclick="installmentGroupDetail(\''+gid+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(f.note||c.name)+'</div>'+
-        '<div class="etag">שולם '+paid+' מתוך '+f.installment.total+' תשלומים</div></div>'+
-        '<div class="eside"><div class="eamt">'+fmt(f.amount)+'</div><div class="edate">לתשלום</div></div></div>';
-    });
-    h+='<div style="margin-bottom:16px"></div>';
-  }
-  h+=txs.length?txs.map(txRow).join(''):'<div class="empty"><b>אין תנועות בקטגוריה זו החודש</b></div>';
-  sheet(c.icon+' '+c.name,h);
 }
 /* סדרת תשלומים חד-פעמית — כל התשלומים (מכל החודשים, לא רק החודש המוצג) + מחיקת הסדרה כולה */
 function installmentGroupDetail(groupId){
@@ -871,18 +815,36 @@ function txRow(x){
     '<div class="edate">'+dLabel(x.date)+(x.chargeDate!==x.date?' → '+dLabel(x.chargeDate):'')+'</div></div></div>';
 }
 function donut(items,total){
+  // it.click (אופציונלי) — שם קריאת פונקציה (מחרוזת) שתופעל בלחיצה, גם על הפלח בעוגה
+  // וגם על השורה במקרא. בלי זה (למשל בעוגת "חלוקת החודש" בדף הבית) הכל נשאר לא-לחיץ
   const r=38,cx=50,cy=50,sw=15,circ=2*Math.PI*r;let off=0,svg='';
   svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" stroke-width="15"/>';
   items.forEach(it=>{const p=total?it.v/total:0;
-    svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="'+it.c+'" stroke-width="15" stroke-dasharray="'+(p*circ)+' '+circ+'" stroke-dashoffset="'+(-off*circ)+'" transform="rotate(-90 50 50)"/>';off+=p;});
+    svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="'+it.c+'" stroke-width="15" stroke-dasharray="'+(p*circ)+' '+circ+'" stroke-dashoffset="'+(-off*circ)+'" transform="rotate(-90 50 50)"'+(it.click?' style="cursor:pointer" onclick="'+it.click+'"':'')+'/>';off+=p;});
   svg+='<text x="50" y="47" text-anchor="middle" font-size="8" fill="#64748b" font-family="Heebo">סה"כ</text>';
   svg+='<text x="50" y="59" text-anchor="middle" font-size="10" fill="#0f172a" font-weight="bold" font-family="Heebo">'+fmt(total)+'</text>';
   return '<svg class="dsvg" viewBox="0 0 100 100">'+svg+'</svg><div class="dleg">'+
-    items.map(it=>'<div class="ditem"><div class="dlbl"><span class="ddot" style="background:'+it.c+'"></span>'+it.n+'</div>'+
+    items.map(it=>'<div class="ditem"'+(it.click?' style="cursor:pointer" onclick="'+it.click+'"':'')+'><div class="dlbl"><span class="ddot" style="background:'+it.c+'"></span>'+it.n+'</div>'+
     '<div class="dval">'+fmt(it.v)+' · '+Math.round(total?it.v/total*100:0)+'%</div></div>').join('')+'</div>';
 }
 function afterRender(){
   requestAnimationFrame(()=>{document.querySelectorAll('.barin[data-w]').forEach(b=>{b.style.width=b.dataset.w+'%';});});
+}
+/* חלונית קטנה שנפתחת בלחיצה על פלח בעוגת "פירוט לפי קטגוריה" (דף הוצאות) —
+   כמה יצא בקטגוריה החודש, ואם יש לה תקציב (רלוונטי בעיקר למשתנות) — גם תקציב מול בפועל */
+function catSummary(catId){
+  const c=CALC.cat(catId),y=selYM||curYM(),m=CALC.month(y);
+  const v=m.byCat[catId]||0,bud=c.budget||0,over=bud>0&&v>bud,p=bud>0?Math.min(100,(v/bud)*100):0;
+  let h='<div style="text-align:center;padding:6px 0 18px"><div style="font-size:40px;margin-bottom:6px">'+c.icon+'</div>'+
+    '<div style="font-size:26px;font-weight:900">'+fmt(v)+'</div><div class="mini">הוצא החודש</div></div>';
+  if(bud>0){
+    h+='<div class="barout"><div class="barin '+(over?'hi':p>85?'mid':'')+'" style="width:'+p+'%"></div></div>'+
+       '<div class="barlbls"><span>₪0</span><span>'+fmt(bud)+'</span></div>'+
+       '<div class="mini" style="margin-top:10px;text-align:center">תקציב '+fmt(bud)+(over?' · חריגה של '+fmt(v-bud):' · נשארו '+fmt(bud-v))+'</div>';
+  }else{
+    h+='<div class="mini" style="text-align:center">לא הוגדר תקציב לקטגוריה הזו</div>';
+  }
+  sheet(c.icon+' '+c.name,h);
 }
 
 /* ============================================================
