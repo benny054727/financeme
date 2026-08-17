@@ -130,6 +130,24 @@ scenario('סיכום חודשי — חלוקה נכונה קבועות/משתנ�
   eq(m.free, 4100, 'פנוי = הכנסות - הוצאות - חיסכון');
 });
 
+scenario('תחזית לסוף החודש (CALC.monthEnd) — מקור אמת יחיד לדף הבית, דף עו"ש וההתראות', () => {
+  const D = freshDB();
+  D.account.openingBalance = 8800;
+  D.account.openingDate = '2026-08-15';
+  D.settings.loansAffectBalance = true;
+  D.loans = [{
+    id:'l2', name:'הלוואת בדיקה', startDate:'2026-08-17', payDay:10,
+    tracks:[{type:'fixed', fixedRate:0, principal:8820, termMonths:12}] // 8820/12 = 735 לחודש
+  }];
+  D.transactions = [
+    {id:'e1', direction:'out', amount:5025, method:'account', date:'2026-08-10', chargeDate:'2026-08-10', categoryId:'c_rent'},
+    {id:'e2', direction:'out', amount:300,  method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_super'},
+    {id:'e3', direction:'out', amount:1500, method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_save'}
+  ];
+  eq(Math.round(LOANS.allMonthlyTotal()), 735, 'בדיקת ביניים — תשלום ההלוואה לחודש');
+  eq(CALC.monthEnd(), 1240, 'תחזית = יתרה (8800) פחות קבועות+משתנות+הלוואה+חיסכון (5025+300+735+1500=7560)');
+});
+
 scenario('תאריך חיוב אשראי — cutoff וקפיצת חודש', () => {
   const card = {cutoffDay:10, chargeDay:5};
   eq(CALC.chargeDate('2026-08-05', card), '2026-09-05', 'רכישה עד ה-cutoff → מחויבת בחודש הבא');

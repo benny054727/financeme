@@ -293,36 +293,12 @@ const CALC={
     return {balance:bal,pending:pend,available:bal-pend};
   },
 
-  /* 4.4 — תחזית יומית עד סוף החודש */
-  forecast(){
-    const t=today(),tISO=iso(t),y=curYM(),last=daysIn(y);
-    const byDay={};
-    DB.transactions.forEach(x=>{
-      if(x.chargeDate>tISO && ym(x.chargeDate)===y && x.method!=='cash'){
-        const d=+x.chargeDate.slice(8,10);
-        byDay[d]=(byDay[d]||0)+(x.direction==='out'?-x.amount:x.amount);
-      }
-    });
-    if(DB.settings.loansAffectBalance){
-      DB.loans.forEach(loan=>{
-        const pay=LOANS.loanCalc(loan).totalPayment,day=Math.min(loan.payDay||10,last);
-        if(pay>0&&day>t.getDate())byDay[day]=(byDay[day]||0)-pay;
-      });
-    }
-    let bal=CALC.balance();
-    const pts=[{day:t.getDate(),bal:bal}];
-    for(let d=t.getDate()+1;d<=last;d++){bal+=(byDay[d]||0);pts.push({day:d,bal:bal});}
-    let min=pts[0];pts.forEach(p=>{if(p.bal<min.bal)min=p;});
-    return {points:pts,end:pts[pts.length-1].bal,min:min};
-  },
-
-  /* תחזית מצומצמת לחלון של X הימים הקרובים בלבד — X = settings.alertThresholds.lowBalanceDays,
-     נועד לענות על "האם צפוי מינוס בקרוב" בלי להתריע על סוף החודש כאילו הוא מחר */
-  forecastWithin(days){
-    const f=CALC.forecast();
-    const win=f.points.slice(0,Math.max(1,Math.min(f.points.length,days+1)));
-    let min=win[0];win.forEach(p=>{if(p.bal<min.bal)min=p;});
-    return {points:win,end:win[win.length-1].bal,min:min};
+  /* 4.4 — תחזית לסוף החודש: יתרה בבנק פחות כל ההוצאות שנרשמו החודש (קבועות +
+     משתנות + הלוואה + הפקדה לחיסכון) — נוסחה יחידה, אותה בדיוק בכל מסך שמציג
+     "תחזית" (דף הבית, דף עו"ש, וההתראות הקריטיות), כדי שלא יסתרו אחד את השני. */
+  monthEnd(){
+    const av=CALC.available(),m=CALC.month(curYM()),loanPay=LOANS.allMonthlyTotal();
+    return av.balance-(m.out+loanPay+m.saving);
   },
 
   /* 4.5 — סיכום חודשי (לפי חודש ההוצאה) */
@@ -479,18 +455,17 @@ function genRecurring(){
    5. ALERTS — מנוע התראות
    ============================================================ */
 function alerts(){
-  const A=[],y=curYM(),m=CALC.month(y),f=CALC.forecast(),av=CALC.available(),S=DB.settings;
-  const lbd=S.alertThresholds.lowBalanceDays||7,fw=CALC.forecastWithin(lbd);
+  const A=[],y=curYM(),m=CALC.month(y),av=CALC.available(),S=DB.settings;
   // הלוואה היא הוצאה חודשית קבועה כמו כל אחרת — אם היא לא נכנסת לכל חישוב "כמה יצא
   // החודש", ההתראות "יתרה חיובית"/"תקציב גבוה" ייתנו תמונה ורודה מדי למי שיש לו הלוואה
   const loanPay=LOANS.allMonthlyTotal();
-  // אותה נוסחה בדיוק כמו "תחזית לסוף החודש" בדף הבית — כדי שההתראה "יתרה חיובית"
-  // תמיד תציג את אותו מספר, ולא נוסחה ישנה ושונה (הכנסה פחות הוצאות) שיכולה לסתור אותה
-  const forecastEnd=av.balance-(m.out+loanPay+m.saving);
+  // אותה נוסחה בדיוק כמו "תחזית לסוף החודש" בדף הבית ובדף עו"ש — מקור אמת יחיד,
+  // כדי שההתראות לא יסתרו מספר שמוצג במקום אחר באפליקציה
+  const monthEnd=CALC.monthEnd();
   const od=-Math.abs(S.overdraftLimit||0);
-  if(fw.min.bal<od){A.push({s:'crit',i:'🚨',t:'צפויה חריגה ממסגרת',d:'ב-'+fw.min.day+' לחודש (בתוך '+lbd+' הימים הקרובים) היתרה צפויה להיות '+fmtS(fw.min.bal)+'. חייב לפעול עכשיו.'});}
-  else if(fw.min.bal<0){A.push({s:'crit',i:'🔴',t:'צפוי מינוס בחשבון',d:'היתרה צפויה לרדת ל-'+fmtS(fw.min.bal)+' ב-'+fw.min.day+' לחודש — בתוך '+lbd+' הימים הקרובים.'});}
-  else if(f.min.bal<S.safetyBuffer){A.push({s:'warn',i:'🟠',t:'ירידה מתחת לכרית הביטחון',d:'ב-'+f.min.day+' לחודש היתרה תגיע ל-'+fmt(f.min.bal)+', מתחת ל-'+fmt(S.safetyBuffer)+'.'});}
+  if(monthEnd<od){A.push({s:'crit',i:'🚨',t:'צפויה חריגה ממסגרת',d:'בסוף החודש היתרה צפויה להיות '+fmtS(monthEnd)+', מעבר למסגרת שהוגדרה. חייב לפעול עכשיו.'});}
+  else if(monthEnd<0){A.push({s:'crit',i:'🔴',t:'צפוי מינוס בחשבון',d:'בסוף החודש היתרה צפויה לרדת ל-'+fmtS(monthEnd)+'.'});}
+  else if(monthEnd<S.safetyBuffer){A.push({s:'warn',i:'🟠',t:'ירידה מתחת לכרית הביטחון',d:'בסוף החודש היתרה צפויה להיות '+fmt(monthEnd)+', מתחת ל-'+fmt(S.safetyBuffer)+'.'});}
   if(m.incomeBase>0&&((m.out+loanPay)/m.incomeBase*100)>S.alertThresholds.budgetWarn){A.push({s:'warn',i:'📊',t:'ניצול תקציב גבוה',d:'ניצלת '+Math.round((m.out+loanPay)/m.incomeBase*100)+'% מההכנסה הקבועה. נשארו '+fmt(m.incomeBase-m.out-loanPay)+'.'});}
   DB.cards.forEach(c=>{
     const cur=m.byCard[c.id]||0,avg=CALC.cardAvg(c.id);
@@ -507,7 +482,7 @@ function alerts(){
   const big=DB.transactions.filter(x=>ym(x.date)===y&&x.direction==='out'&&m.incomeBase>0&&x.amount>m.incomeBase*.15);
   if(big.length){const b=big.sort((a,c)=>c.amount-a.amount)[0];A.push({s:'note',i:'🔍',t:'הוצאה חריגה',d:(b.note||CALC.cat(b.categoryId).name)+' — '+fmt(b.amount)+', מעל 15% מההכנסה.'});}
   if(m.saveRate>20){A.push({s:'good',i:'🌟',t:'חודש חזק',d:'הפרשת '+Math.round(m.saveRate)+'% מההכנסה לחיסכון. ככה ממשיכים.'});}
-  else if(forecastEnd>0){A.push({s:'good',i:'📈',t:'יתרה חיובית',d:'צפויים להישאר '+fmt(forecastEnd)+' בבנק בסוף החודש.'});}
+  else if(monthEnd>0){A.push({s:'good',i:'📈',t:'יתרה חיובית',d:'צפויים להישאר '+fmt(monthEnd)+' בבנק בסוף החודש.'});}
   // תזכורת גיבוי אקטיבית — localStorage לא בטוח (סאפרי בנייד מוחק אחרי אי-שימוש),
   // אז מזכירים אם יש נתונים משמעותיים ולא יוצא גיבוי מעולם / כבר 20+ יום
   if(DB.transactions.length>3){
@@ -544,9 +519,8 @@ function vHome(){
   const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
   const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
-  // תחזית לסוף החודש — לפי בקשת המשתמש: נוסחה פשוטה וקבועה, יתרה בבנק פחות סך כל ההוצאות
-  // שנרשמו החודש (קבועות+משתנות+הלוואה+חיסכון), בלי קשר לתאריך החיוב של כל תנועה בנפרד
-  const forecastEnd=av.balance-(m.out+loanPay+m.saving);
+  // תחזית לסוף החודש — מקור אמת יחיד (CALC.monthEnd), אותו מספר בדיוק בכל מסך שמציג אותו
+  const forecastEnd=CALC.monthEnd();
   // תחזית אחרי הכנסה — אותו דבר, בתוספת ההכנסה החודשית המינימלית שהוגדרה בהגדרות
   // (settings.monthlyExpenseTarget משמש כאן פעם שנייה, גם כ"רצפת הכנסה" צפויה)
   const minIncome=DB.settings.monthlyExpenseTarget||0;
@@ -602,7 +576,7 @@ function showAllAlerts(){
 
 /* ---------- ACCOUNT ---------- */
 function vAccount(){
-  const av=CALC.available(),f=CALC.forecast(),y=curYM(),t=iso(today());
+  const av=CALC.available(),monthEnd=CALC.monthEnd(),y=curYM(),t=iso(today());
   let h='';
   h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>יתרה בבנק</div>'+
      '<div class="hamt '+(av.balance<0?'neg':'')+'">'+fmtS(av.balance)+'</div>'+
@@ -617,9 +591,10 @@ function vAccount(){
       '<div class="eside"><div class="eamt">'+fmt(lc.totalPayment)+'</div><div class="edate">לחודש</div></div></div>';
   });
   h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openLoanForm()">+ הוסף הלוואה</button></div>';
-  h+='<div class="box"><div class="stitle"><span>📉</span> תחזית יתרה עד סוף החודש</div>'+forecastChart(f)+
-     '<div class="alert '+(f.min.bal<0?'a-crit':f.min.bal<DB.settings.safetyBuffer?'a-warn':'a-good')+'" style="margin-top:14px">'+
-     '<div class="aic">'+(f.min.bal<DB.settings.safetyBuffer?'⚠️':'✅')+'</div><div class="atx"><b>הנקודה הנמוכה: '+fmtS(f.min.bal)+'</b>צפויה ב-'+f.min.day+' לחודש. סוף החודש: '+fmtS(f.end)+'</div></div></div>';
+  h+='<div class="box"><div class="stitle"><span>📉</span> תחזית לסוף החודש</div>'+
+     '<div class="barpct" style="color:'+(monthEnd<0?'var(--expense)':monthEnd<DB.settings.safetyBuffer?'var(--warn)':'var(--income)')+'">'+fmtS(monthEnd)+'</div>'+
+     '<div class="alert '+(monthEnd<0?'a-crit':monthEnd<DB.settings.safetyBuffer?'a-warn':'a-good')+'" style="margin-top:10px">'+
+     '<div class="aic">'+(monthEnd<DB.settings.safetyBuffer?'⚠️':'✅')+'</div><div class="atx"><b>'+fmtS(monthEnd)+'</b>יתרה בבנק פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש. אותו מספר בדיוק כמו בדף הבית.</div></div></div>';
   const up=DB.transactions.filter(x=>x.chargeDate>=t).sort((a,b)=>a.chargeDate<b.chargeDate?-1:1);
   h+='<div class="box"><div class="stitle"><span>📅</span> חיובים והכנסות צפויים<span class="sright">'+up.length+'</span></div>';
   if(!up.length)h+='<div class="empty"><b>אין חיובים עתידיים</b>הכל כבר ירד מהחשבון</div>';
@@ -893,26 +868,6 @@ function donut(items,total){
   return '<svg class="dsvg" viewBox="0 0 100 100">'+svg+'</svg><div class="dleg">'+
     items.map(it=>'<div class="ditem"><div class="dlbl"><span class="ddot" style="background:'+it.c+'"></span>'+it.n+'</div>'+
     '<div class="dval">'+fmt(it.v)+' · '+Math.round(total?it.v/total*100:0)+'%</div></div>').join('')+'</div>';
-}
-function forecastChart(f){
-  const p=f.points;if(p.length<2)return '<div class="empty">אין מספיק נתונים לתחזית</div>';
-  const W=300,H=120,pad=6;
-  const vals=p.map(x=>x.bal),mx=Math.max(...vals,DB.settings.safetyBuffer),mn=Math.min(...vals,0);
-  const rng=(mx-mn)||1;
-  const X=i=>pad+(i/(p.length-1))*(W-pad*2), Y=v=>pad+(1-(v-mn)/rng)*(H-pad*2);
-  let d='',area='';
-  p.forEach((pt,i)=>{d+=(i?' L':'M')+X(i).toFixed(1)+' '+Y(pt.bal).toFixed(1);});
-  area='M'+X(0).toFixed(1)+' '+Y(mn).toFixed(1)+' '+d.slice(1)+' L'+X(p.length-1).toFixed(1)+' '+Y(mn).toFixed(1)+' Z';
-  const zeroY=Y(0),bufY=Y(DB.settings.safetyBuffer);
-  const mi=p.findIndex(x=>x.day===f.min.day);
-  const col=f.min.bal<0?'#e5383b':f.min.bal<DB.settings.safetyBuffer?'#f59e0b':'#0ead69';
-  return '<div class="fcwrap"><svg viewBox="0 0 '+W+' '+H+'">'+
-   '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+col+'" stop-opacity=".28"/><stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
-   (mn<0?'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+W+'" y2="'+zeroY.toFixed(1)+'" stroke="#e5383b" stroke-width="1" stroke-dasharray="4 4"/>':'')+
-   '<line x1="0" y1="'+bufY.toFixed(1)+'" x2="'+W+'" y2="'+bufY.toFixed(1)+'" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 5"/>'+
-   '<path d="'+area+'" fill="url(#fg)"/><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'+
-   '<circle cx="'+X(mi).toFixed(1)+'" cy="'+Y(f.min.bal).toFixed(1)+'" r="4" fill="'+col+'" stroke="#fff" stroke-width="2"/>'+
-   '</svg></div><div class="fclegend"><span>היום ('+p[0].day+')</span><span style="color:#94a3b8">--- כרית ביטחון '+fmt(DB.settings.safetyBuffer)+'</span><span>'+p[p.length-1].day+' לחודש</span></div>';
 }
 function afterRender(){
   requestAnimationFrame(()=>{document.querySelectorAll('.barin[data-w]').forEach(b=>{b.style.width=b.dataset.w+'%';});});
@@ -1447,8 +1402,7 @@ function openSettings(){
    '<button class="btn sec" style="margin-bottom:22px" onclick="doSignOut()">התנתק</button>'+
    '<div class="fld"><label>כרית ביטחון — סכום שלא לרדת מתחתיו</label><input id="stBuf" type="number" value="'+S.safetyBuffer+'"/></div>'+
    '<div class="fld"><label>מסגרת אשראי בעו"ש</label><input id="stOd" type="number" value="'+S.overdraftLimit+'"/></div>'+
-   '<div class="fld"><label>התרע על מינוס צפוי בטווח של (ימים)</label><input id="stLbd" type="number" min="1" max="31" value="'+(S.alertThresholds.lowBalanceDays||7)+'"/><div class="hint">חלון ההתראה על "צפוי מינוס" — התראות מעבר לטווח הזה לא יוצגו כדחופות</div></div>'+
-   '<div class="fld"><label>יעד הוצאות חודשי (0 = בלי יעד)</label><input id="stTarget" type="number" value="'+(S.monthlyExpenseTarget||0)+'"/><div class="hint">סכום ההוצאות הכולל שאתה שואף לא לחרוג ממנו — קבועות, משתנות והלוואות ביחד</div></div>'+
+   '<div class="fld"><label>יעד הוצאות חודשי (0 = בלי יעד)</label><input id="stTarget" type="number" value="'+(S.monthlyExpenseTarget||0)+'"/><div class="hint">סכום ההוצאות הכולל שאתה שואף לא לחרוג ממנו — קבועות, משתנות, הלוואות וחיסכון ביחד</div></div>'+
    '<div class="stitle" style="margin-top:22px"><span>🏦</span> הלוואות</div>'+
    '<div class="fld"><label>ריבית בנק ישראל הנוכחית (%)</label><input id="stBoi" type="number" step="0.01" value="'+(S.boiRate||0)+'"/><div class="hint">משמשת לחישוב כל מסלולי הפריים בהלוואות. עדכן ידנית כשבנק ישראל משנה את הריבית — למערכת אין גישה לאינטרנט.'+(S.boiRateUpdated?' עודכן לאחרונה: '+dLabel(S.boiRateUpdated)+'.':'')+'</div></div>'+
    '<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="stLoanBal" type="checkbox" style="width:auto" '+(S.loansAffectBalance?'checked':'')+'/> כלול תשלומי הלוואות ביתרה הזמינה ובתחזית</label><div class="hint">כשמסומן, תשלום ההלוואה (לפי "יום חיוב" שהגדרת לה) יורד מ"יתרה זמינה" ומהתחזית — בדיוק כמו חיוב אשראי. בטל אם אתה כבר עוקב אחרי אותו חיוב בנפרד כהוראת קבע, כדי לא לספור פעמיים.</div></div>'+
@@ -1488,7 +1442,6 @@ function rmCard(i){tmpCards.splice(i,1);paintCardRows();}
 function saveSettings(){
   DB.settings.safetyBuffer=+el('stBuf').value||0;
   DB.settings.overdraftLimit=+el('stOd').value||0;
-  DB.settings.alertThresholds.lowBalanceDays=+el('stLbd').value||7;
   DB.settings.monthlyExpenseTarget=+el('stTarget').value||0;
   const newBoi=+el('stBoi').value||0;
   if(newBoi!==DB.settings.boiRate)DB.settings.boiRateUpdated=iso(today());
