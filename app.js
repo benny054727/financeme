@@ -421,8 +421,15 @@ function genRecurring(){
         chargeDate:r.direction==='in'?d:CALC.chargeDate(d,card),
         categoryId:r.categoryId,method:r.method,cardId:card?card.id:null,
         note:r.name,installment:installment,recurringId:r.id,
-        incomeType:r.direction==='in'?(r.incomeType||'salary'):null
+        incomeType:r.direction==='in'?(r.incomeType||'salary'):null,
+        goalId:r.goalId||null
       });
+      // הוראת קבע שמקושרת ליעד חיסכון (למשל הפקדה חודשית אוטומטית) — כל חיוב שנוצר
+      // מעדכן את "סה"כ נצבר" של היעד באופן אוטומטי, בדיוק כמו הפקדה ידנית בכפתור "הפקד"
+      if(r.goalId){
+        const g=DB.goals.find(x=>x.id===r.goalId);
+        if(g)g.saved+=r.amount;
+      }
     });
   });
   DB.meta.lastGen=y;save();
@@ -496,8 +503,8 @@ function vHome(){
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
   const pct=m.incomeBase>0?Math.min(100,Math.round((m.out+loanPay)/m.incomeBase*100)):0;
   // תחזית לסוף החודש — לפי בקשת המשתמש: נוסחה פשוטה וקבועה, יתרה בבנק פחות סך כל ההוצאות
-  // שנרשמו החודש (קבועות+משתנות+הלוואה), בלי קשר לתאריך החיוב של כל תנועה בנפרד
-  const forecastEnd=av.balance-(m.out+loanPay);
+  // שנרשמו החודש (קבועות+משתנות+הלוואה+חיסכון), בלי קשר לתאריך החיוב של כל תנועה בנפרד
+  const forecastEnd=av.balance-(m.out+loanPay+m.saving);
   let h='';
   h+='<div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">'+
      '<div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 6px 16px rgba(37,99,235,.3)">👋</div>'+
@@ -507,7 +514,7 @@ function vHome(){
      '<div class="hrow">'+
      '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
      '</div>'+
-     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות וההלוואה שנרשמו החודש ('+fmt(m.out+loanPay)+').</div>'+
+     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש ('+fmt(m.out+loanPay+m.saving)+').</div>'+
      '</div>';
   h+='<div class="kpi">'+
      '<div class="kcard inc"><div class="klbl"><span class="dot"></span>הכנסות</div><div class="kamt">'+fmt(m.income)+'</div></div>'+
@@ -807,7 +814,14 @@ function goalGrowthChart(g){
    '<path d="'+area+'" fill="url(#'+gid+')"/><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'+
    '</svg><div class="mini" style="display:flex;justify-content:space-between;margin-top:3px"><span>'+dLabel(pts[0].date)+'</span><span>'+dLabel(pts[pts.length-1].date)+'</span></div></div>';
 }
-function delGoal(id){if(!confirm('למחוק את היעד?'))return;DB.goals=DB.goals.filter(g=>g.id!==id);save();render();toast('נמחק');}
+function delGoal(id){
+  if(!confirm('למחוק את היעד?'))return;
+  DB.goals=DB.goals.filter(g=>g.id!==id);
+  // הוראת קבע שהייתה מקושרת ליעד הזה ממשיכה לרוץ כרגיל (עדיין הפקדה לחיסכון אמיתית) —
+  // רק מנתקים את הקישור, כדי לא להשאיר הפניה ליעד שכבר לא קיים
+  DB.recurring.forEach(r=>{if(r.goalId===id)r.goalId=null;});
+  save();render();toast('נמחק');
+}
 
 /* ---------- shared bits ---------- */
 function txRow(x){
@@ -1115,6 +1129,9 @@ function openRecurring(editId,presetCatId){
    (skippedThisMonth?'<div class="note" style="margin-bottom:15px">⚠️ התנועה של החודש הזה נמחקה בעבר ולא תיווצר מחדש לבד.<br/><button class="lnk" onclick="restoreSkippedRec(\''+r.id+'\')" style="color:var(--expense)">שחזר את התנועה</button></div>':'')+
    '<div class="fld"><label>שם</label><input id="rName" type="text" placeholder="ביטוח רכב" value="'+(r?esc(r.name):'')+'"/></div>'+
    '<div class="fld"><label>קטגוריה</label><select id="rCat">'+cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('')+'</select></div>'+
+   (DB.goals.length?'<div class="fld"><label>קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
+     DB.goals.map(g=>'<option value="'+g.id+'" '+(r&&r.goalId===g.id?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>'+
+     '<div class="hint">אם ההוראה היא הפקדה לחיסכון — קשר אותה ליעד כדי שהוא יתעדכן אוטומטית בכל חיוב</div></div>':'')+
    '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(r&&r.method==='account'?'selected':'')+'>מהעו"ש</option>'+
      DB.cards.map(c=>'<option value="'+c.id+'" '+(r&&r.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
    '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>'+
@@ -1157,11 +1174,12 @@ function saveRec(editId){
     amount=parseFloat(el('rAmt').value);
     if(!amount||amount<=0)return toast('הזן סכום');
   }
+  const goalId=(el('rGoal')&&el('rGoal').value)||null;
   if(existing){
     // עריכה משפיעה קדימה בלבד — תנועות שכבר נוצרו בעבר לא משתנות רטרואקטיבית
     existing.name=n;existing.amount=amount;existing.dayOfMonth=d;existing.categoryId=el('rCat').value;
     existing.method=isCard?'card':'account';existing.cardId=isCard?mv:null;
-    existing.installmentTotal=installmentTotal;existing.endDate=endDate;
+    existing.installmentTotal=installmentTotal;existing.endDate=endDate;existing.goalId=goalId;
     save();genRecurring();closeSheet();render();toast('עודכן');
     return;
   }
@@ -1169,7 +1187,7 @@ function saveRec(editId){
     method:isCard?'card':'account',cardId:isCard?mv:null,dayOfMonth:d,
     // תחילת החודש הנוכחי, לא "היום" — אחרת מופע החודש הזה נבלע אם יום החיוב כבר עבר
     // (למשל מוסיפים הוראת קבע ל-5 לחודש כשהיום כבר ה-15, וה"היום" כ-startDate היה מדלג עליו)
-    startDate:start,endDate:endDate,active:true,direction:'out',installmentTotal:installmentTotal});
+    startDate:start,endDate:endDate,active:true,direction:'out',installmentTotal:installmentTotal,goalId:goalId});
   save();genRecurring();closeSheet();render();toast(isInst?'נוספה תוכנית תשלומים':'נוספה הוראת קבע');
 }
 function toggleRec(id){
