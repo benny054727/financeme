@@ -481,7 +481,7 @@ function alerts(){
 /* ============================================================
    6. UI — רינדור
    ============================================================ */
-let PAGE='home',selYM=null,expTab='fixed';
+let PAGE='home',selYM=null,expTab='fixed',recBoxOpen=false;
 const el=id=>document.getElementById(id);
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -690,16 +690,22 @@ function vExpenses(){
   });
   h+='</div>';
   if(expTab==='fixed'){
+    // כדי לא לבלבל בין "הוצאה בפועל" (הקופסה למעלה) ל"כלל שיצר אותה" (כאן) — הקטגוריות
+    // הבודדות למעלה כבר מספרות את כל הסיפור הכספי, אז מקפלים את הרשימה הזו כברירת מחדל
+    // ופותחים אותה רק לפי בקשה, למי שבאמת צריך לנהל/להשהות/למחוק כלל
     const recs=DB.recurring.filter(r=>r.direction!=='in'); // הכנסות קבועות (משכורת) מנוהלות בנפרד, לא כאן
-    h+='<div class="box"><div class="stitle"><span>⚙️</span> הוראות קבע<span class="sright">'+recs.length+'</span></div>';
-    if(!recs.length)h+='<div class="empty"><b>לא הוגדרו הוראות קבע</b>הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית</div>';
-    recs.forEach(r=>{const c=CALC.cat(r.categoryId),cd=r.cardId?CALC.card(r.cardId):null;
-      // שורה שלמה לחיצה שפותחת מודאל עריכה/מחיקה — אותו דפוס בדיוק כמו שורת קטגוריה למעלה
-      const instTag=r.installmentTotal?' · תשלום '+Math.min(r.installmentTotal,Math.max(1,monthsBetweenYM(r.startDate,curYM())+1))+'/'+r.installmentTotal:'';
-      h+='<div class="eitem tap" style="'+(r.active?'':'opacity:.5')+'" onclick="openRecurring(\''+r.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.name)+(r.active?'':' · מושהה')+'</div>'+
-      '<div class="etag">ב-'+r.dayOfMonth+' לחודש · '+(cd?esc(cd.name):'מהעו"ש')+instTag+'</div></div>'+
-      '<div class="eside"><div class="eamt">'+fmt(r.amount)+'</div></div></div>';});
-    h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openRecurring()">+ הוסף הוראת קבע</button></div>';
+    h+='<div class="box"><div class="stitle" style="cursor:pointer" onclick="recBoxOpen=!recBoxOpen;render()"><span>⚙️</span> ניהול הוראות קבע<span class="sright">'+(recBoxOpen?'הסתר ▲':'הצג ▼')+'</span></div>';
+    if(recBoxOpen){
+      if(!recs.length)h+='<div class="empty"><b>לא הוגדרו הוראות קבע</b>הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית</div>';
+      recs.forEach(r=>{const c=CALC.cat(r.categoryId),cd=r.cardId?CALC.card(r.cardId):null;
+        // שורה שלמה לחיצה שפותחת מודאל עריכה/מחיקה — אותו דפוס בדיוק כמו שורת קטגוריה למעלה
+        const instTag=r.installmentTotal?' · תשלום '+Math.min(r.installmentTotal,Math.max(1,monthsBetweenYM(r.startDate,curYM())+1))+'/'+r.installmentTotal:'';
+        h+='<div class="eitem tap" style="'+(r.active?'':'opacity:.5')+'" onclick="openRecurring(\''+r.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.name)+(r.active?'':' · מושהה')+'</div>'+
+        '<div class="etag">ב-'+r.dayOfMonth+' לחודש · '+(cd?esc(cd.name):'מהעו"ש')+instTag+'</div></div>'+
+        '<div class="eside"><div class="eamt">'+fmt(r.amount)+'</div></div></div>';});
+      h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openRecurring()">+ הוסף הוראת קבע</button>';
+    }
+    h+='</div>';
   }
   return h;
 }
