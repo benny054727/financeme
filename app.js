@@ -491,8 +491,9 @@ function render(){
 
 /* ---------- HOME ---------- */
 function vHome(){
-  const y=curYM(),m=CALC.month(y),av=CALC.available(),f=CALC.forecast(),A=alerts();
+  const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
   const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
+  const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
   const pct=m.incomeBase>0?Math.min(100,Math.round((m.out+loanPay)/m.incomeBase*100)):0;
   let h='';
   h+='<div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">'+
@@ -502,15 +503,14 @@ function vHome(){
      '<div class="hamt '+(av.available<0?'neg':'')+'">'+fmtS(av.available)+'</div>'+
      '<div class="hrow">'+
      '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
-     '<div class="hcell"><div class="cl">טרם ירד</div><div class="cv" style="color:var(--expense)">'+fmt(av.pending)+'</div></div>'+
-     '<div class="hcell"><div class="cl">תחזית לסוף החודש</div><div class="cv" style="color:'+(f.end<0?'var(--expense)':'var(--income)')+'">'+fmtS(f.end)+'</div></div>'+
+     '<div class="hcell"><div class="cl">תחזית לסוף החודש</div><div class="cv" style="color:'+(av.available<0?'var(--expense)':'var(--income)')+'">'+fmtS(av.available)+'</div></div>'+
      '</div>'+
-     (av.pending>0?'<div class="mini" style="margin-top:12px;line-height:1.6">💡 "טרם ירד" כולל כל חיוב עתידי, גם אם יחויב בפועל רק בחודש הבא (חיוב אשראי למשל) — לכן "תחזית לסוף החודש" יכולה להישאר ללא שינוי למרות שיש הוצאה שכבר נרשמה החודש.</div>':'')+
+     (av.pending>0?'<div class="mini" style="margin-top:12px;line-height:1.6">💡 "תחזית לסוף החודש" כבר מביאה בחשבון את כל ההוצאות הקבועות, המשתנות וההלוואות שנרשמו ועדיין לא ירדו בפועל, כל אחת לפי התאריך הצפוי לה — גם אם זה רק בחודש הבא.</div>':'')+
      '</div>';
   h+='<div class="kpi">'+
      '<div class="kcard inc"><div class="klbl"><span class="dot"></span>הכנסות</div><div class="kamt">'+fmt(m.income)+'</div></div>'+
      '<div class="kcard exp"><div class="klbl"><span class="dot"></span>הוצאות</div><div class="kamt">'+fmt(m.out+loanPay)+'</div></div>'+
-     '<div class="kcard sav"><div class="klbl"><span class="dot"></span>לחיסכון</div><div class="kamt">'+fmt(m.saving)+'</div></div>'+
+     '<div class="kcard sav"><div class="klbl"><span class="dot"></span>לחיסכון</div><div class="kamt">'+fmt(totalSaved)+'</div></div>'+
      '</div>'+
      (loanPay>0?'<div class="mini" style="margin-bottom:16px">💡 "הוצאות" כולל '+fmt(loanPay)+' החזרי הלוואות החודש</div>':'');
   if(A.length){
