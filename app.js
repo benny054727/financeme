@@ -501,7 +501,6 @@ function vHome(){
   const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
   const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
-  const pct=m.incomeBase>0?Math.min(100,Math.round((m.out+loanPay)/m.incomeBase*100)):0;
   // תחזית לסוף החודש — לפי בקשת המשתמש: נוסחה פשוטה וקבועה, יתרה בבנק פחות סך כל ההוצאות
   // שנרשמו החודש (קבועות+משתנות+הלוואה+חיסכון), בלי קשר לתאריך החיוב של כל תנועה בנפרד
   const forecastEnd=av.balance-(m.out+loanPay+m.saving);
@@ -518,33 +517,24 @@ function vHome(){
      '</div>';
   h+='<div class="kpi">'+
      '<div class="kcard inc"><div class="klbl"><span class="dot"></span>הכנסות</div><div class="kamt">'+fmt(m.income)+'</div></div>'+
-     '<div class="kcard exp"><div class="klbl"><span class="dot"></span>הוצאות</div><div class="kamt">'+fmt(m.out+loanPay)+'</div></div>'+
+     '<div class="kcard exp"><div class="klbl"><span class="dot"></span>הוצאות</div><div class="kamt">'+fmt(m.out+loanPay+m.saving)+'</div></div>'+
      '<div class="kcard sav"><div class="klbl"><span class="dot"></span>לחיסכון</div><div class="kamt">'+fmt(totalSaved)+'</div></div>'+
      '</div>'+
-     (loanPay>0?'<div class="mini" style="margin-bottom:16px">💡 "הוצאות" כולל '+fmt(loanPay)+' החזרי הלוואות החודש</div>':'');
+     (loanPay>0?'<div class="mini" style="margin-bottom:16px">💡 "הוצאות" כולל '+fmt(loanPay)+' החזרי הלוואות ו-'+fmt(m.saving)+' הפקדה לחיסכון החודש</div>':'');
   if(A.length){
     h+='<div class="box"><div class="stitle"><span>🔔</span> התראות ותובנות<span class="sright">'+A.length+'</span></div>';
     A.slice(0,4).forEach(a=>{h+='<div class="alert a-'+a.s+'"><div class="aic">'+a.i+'</div><div class="atx"><b>'+esc(a.t)+'</b>'+esc(a.d)+'</div></div>';});
     if(A.length>4)h+='<div style="text-align:center;margin-top:12px"><button class="chip" onclick="showAllAlerts()">הצג את כל ה-'+A.length+'</button></div>';
     h+='</div>';
   }
-  if(m.incomeBase>0){
-    h+='<div class="box"><div class="stitle"><span>📊</span> ניצול ההכנסה הקבועה</div>'+
-       '<div class="barout"><div class="barin '+(pct>85?'hi':pct>65?'mid':'')+'" data-w="'+pct+'"></div></div>'+
-       '<div class="barlbls"><span>₪0</span><span>'+fmt(m.incomeBase)+'</span></div>'+
-       '<div class="barpct" style="color:'+(pct>85?'var(--expense)':pct>65?'var(--warn)':'var(--income)')+'">'+pct+'%</div>'+
-       '<div class="mini">נוצלו להוצאות'+(loanPay>0?' (כולל הלוואות)':'')+'. נשארו '+fmt(Math.max(0,m.incomeBase-m.out-loanPay))+'</div>';
-    if(m.incomeExtra>0)h+='<div class="note" style="margin-top:14px">💡 בנוסף נכנסו '+fmt(m.incomeExtra)+' כהכנסה חד-פעמית. הם לא נכללים בבסיס החודשי כדי לא לעוות את התחזית.</div>';
-    h+='</div>';
-  }
   const target=DB.settings.monthlyExpenseTarget||0;
   if(target>0){
-    const spent=m.fixed+m.variable+loanPay,tpct=Math.min(100,Math.round((spent/target)*100));
+    const spent=m.fixed+m.variable+loanPay+m.saving,tpct=Math.min(100,Math.round((spent/target)*100));
     h+='<div class="box"><div class="stitle"><span>🎯</span> יעד הוצאות חודשי</div>'+
        '<div class="barout"><div class="barin '+(spent>target?'hi':tpct>85?'mid':'')+'" data-w="'+tpct+'"></div></div>'+
        '<div class="barlbls"><span>₪0</span><span>'+fmt(target)+'</span></div>'+
        '<div class="barpct" style="color:'+(spent>target?'var(--expense)':tpct>85?'var(--warn)':'var(--income)')+'">'+tpct+'%</div>'+
-       '<div class="mini">הוצאת '+fmt(spent)+' מתוך יעד '+fmt(target)+' (קבועות + משתנות'+(loanPay>0?' + הלוואות':'')+')'+(spent>target?' · חריגה של '+fmt(spent-target):' · נשארו '+fmt(target-spent))+'</div></div>';
+       '<div class="mini">הוצאת '+fmt(spent)+' מתוך יעד '+fmt(target)+' (קבועות + משתנות'+(loanPay>0?' + הלוואות':'')+(m.saving>0?' + חיסכון':'')+')'+(spent>target?' · חריגה של '+fmt(spent-target):' · נשארו '+fmt(target-spent))+'</div></div>';
   }
   const split=[{n:'הוצאות קבועות',v:m.fixed,c:'#2563eb'},{n:'הלוואות',v:loanPay,c:'#d97706'},{n:'הוצאות משתנות',v:m.variable,c:'#e5383b'},{n:'חיסכון',v:m.saving,c:'#7c3aed'}].filter(x=>x.v>0);
   if(split.length){
