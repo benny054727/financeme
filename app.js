@@ -1093,20 +1093,36 @@ function openFixedEdit(id){
   TX=id;
   const cats=DB.categories.filter(k=>k.kind==='fixed'),day=+x.date.slice(8,10);
   sheet('עריכת הוצאה קבועה',
-   '<div class="note" style="margin-bottom:15px">💡 הוצאה קבועה תמיד חוזרת — השמירה תהפוך אותה להוראת קבע אמיתית שתירשם אוטומטית כל חודש מעכשיו.</div>'+
+   '<div class="note" style="margin-bottom:15px">💡 "שמור" עורך רק את התנועה הזו. "הפוך להוראת קבע" יוצר בנוסף חיוב אוטומטי שיירשם לבד כל חודש מעכשיו — שתי פעולות נפרדות, לא קורה אחת בלי שתבקש.</div>'+
    '<div class="fld"><label>שם ההוצאה</label><input id="rName" type="text" value="'+esc(x.note||CALC.cat(x.categoryId).name)+'"/></div>'+
    '<div class="fld"><label>קטגוריה</label><select id="rCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
    '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(!x.cardId?'selected':'')+'>מהעו"ש</option>'+
      DB.cards.map(c=>'<option value="'+c.id+'" '+(x.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
    '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+day+'"/></div></div>'+
-   '<div class="fld"><label>סוג הוראה</label><div class="seg"><button id="rTypeReg" class="on" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
-   '<div id="rRegWrap"><div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+x.amount+'"/></div></div>'+
+   '<div class="fld"><label>סכום</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+x.amount+'"/></div>'+
+   '<button class="btn sec" onclick="saveFixedTxOnly(\''+id+'\')">שמור (רק את התנועה הזו)</button>'+
+   '<div class="fld" style="margin-top:18px"><label>סוג הוראת קבע (אופציונלי — רק אם לוחצים למטה)</label><div class="seg"><button id="rTypeReg" class="on" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
+   '<div id="rRegWrap" class="mini">משתמש בסכום שהוזן למעלה כסכום החודשי הקבוע.</div>'+
    '<div id="rInstWrap" style="display:none"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0"/></div>'+
      '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="12"/></div></div>'+
      '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div></div>'+
-   '<button class="btn" style="margin-top:8px" onclick="saveFixedEdit(\''+id+'\')">שמור</button>'+
-   '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה (בלי להפוך להוראת קבע)</button>',
+   '<button class="btn" style="margin-top:8px" onclick="saveFixedEdit(\''+id+'\')">הפוך להוראת קבע</button>'+
+   '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה</button>',
    ()=>{updateInstPreview();['rTotal','rCount'].forEach(iid=>{const e=el(iid);if(e)e.addEventListener('input',updateInstPreview);});});
+}
+/* "שמור" — עורך רק את התנועה הבודדת הזו, בלי ליצור הוראת קבע. זה ההבדל המרכזי
+   מ-saveFixedEdit: שינוי שם/סכום לא אמור "להחליט" בשביל המשתמש שהוא רוצה אוטומציה */
+function saveFixedTxOnly(txId){
+  const x=DB.transactions.find(t=>t.id===txId);if(!x)return;
+  const n=el('rName').value.trim(),d=+el('rDay').value,amount=parseFloat(el('rAmt').value);
+  if(!n)return toast('הזן שם');
+  if(!amount||amount<=0)return toast('הזן סכום');
+  const mv=el('rMethod').value,isCard=mv!=='account';
+  const newDate=dayIn(ym(x.date),d);
+  x.note=n;x.categoryId=el('rCat').value;x.amount=amount;x.date=newDate;
+  x.method=isCard?'card':'account';x.cardId=isCard?mv:null;
+  x.chargeDate=isCard?CALC.chargeDate(newDate,CALC.card(mv)):newDate;
+  save();closeSheet();render();toast('עודכן ✓');
 }
 function saveFixedEdit(txId){
   const n=el('rName').value.trim(),d=+el('rDay').value;
