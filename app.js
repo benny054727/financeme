@@ -680,7 +680,7 @@ function vExpenses(){
     // (ששם יש ערך אמיתי במסך הביניים — לינק לעריכת ההוראה) ממשיכות כרגיל ל-categoryDetail
     const catTxs=DB.transactions.filter(x=>x.categoryId===r.c.id&&ym(x.date)===y);
     const catRec=DB.recurring.find(x=>x.categoryId===r.c.id&&x.direction!=='in'&&x.active);
-    const target=(!catRec&&catTxs.length===1)?'openTx(\''+catTxs[0].id+'\')':'categoryDetail(\''+r.c.id+'\')';
+    const target=(!catRec&&catTxs.length===1)?'openTxSmart(\''+catTxs[0].id+'\')':'categoryDetail(\''+r.c.id+'\')';
     h+='<div class="eitem tap" style="display:block;padding:13px 0" onclick="'+target+'"><div style="display:flex;align-items:center;gap:12px">'+
       '<div class="eico">'+r.c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.c.name)+'</div>'+
       (bud>0?'<div class="etag">תקציב '+fmt(bud)+(over?' · חריגה של '+fmt(r.v-bud):'')+'</div>':'')+
@@ -837,7 +837,7 @@ function delGoal(id){
 /* ---------- shared bits ---------- */
 function txRow(x){
   const c=CALC.cat(x.categoryId),cd=x.cardId?CALC.card(x.cardId):null;
-  return '<div class="eitem tap" onclick="openTx(\''+x.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(x.note||c.name)+'</div>'+
+  return '<div class="eitem tap" onclick="openTxSmart(\''+x.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(x.note||c.name)+'</div>'+
     '<div class="etag">'+(cd?'<span class="tdot" style="background:'+cd.color+'"></span>'+esc(cd.name):(x.method==='cash'?'מזומן':'מהעו"ש'))+
     (x.installment?' · '+x.installment.index+'/'+x.installment.total:'')+'</div></div>'+
     '<div class="eside"><div class="eamt '+(x.direction==='in'?'in':'')+'">'+(x.direction==='in'?'+':'-')+fmt(x.amount)+'</div>'+
@@ -1053,6 +1053,91 @@ function delTx(whole){
     DB.transactions=DB.transactions.filter(t=>t.id!==x.id);
   }
   save();closeSheet();render();toast('נמחק');
+}
+
+/* ---- עריכת תנועה בודדת — תבנית אחידה לפי סוג הקטגוריה (קבועה/משתנה), לבקשת המשתמש:
+   קבועה = אותו טופס בדיוק כמו הוראת קבע (כי "קבועה" מטבעה חוזרת כל חודש או בתשלומים —
+   אין באמת "הוצאה קבועה חד-פעמית"), משתנה = טופס פשוט יותר, תמיד חד-פעמית. ---- */
+function openTxSmart(id){
+  const x=DB.transactions.find(t=>t.id===id);if(!x)return;
+  // סדרת תשלומים (תוכנית תשלומים חד-פעמית) מנוהלת במסך הייעודי שלה (כמה שולם, מחיקת כל
+  // הסדרה) — לא דרך התבניות החדשות, כדי לא לאבד את המידע הזה
+  if(x.installment)return openTx(id);
+  const kind=CALC.cat(x.categoryId).kind;
+  if(kind==='fixed')return openFixedEdit(id);
+  if(kind==='variable')return openVariableEdit(id);
+  return openTx(id);
+}
+function openFixedEdit(id){
+  const x=DB.transactions.find(t=>t.id===id);if(!x)return;
+  // אם כבר יש הוראת קבע פעילה לקטגוריה הזו — עורכים את הכלל עצמו, לא את המופע הבודד
+  const rec=DB.recurring.find(r=>r.categoryId===x.categoryId&&r.direction!=='in'&&r.active);
+  if(rec)return openRecurring(rec.id);
+  TX=id;
+  const cats=DB.categories.filter(k=>k.kind==='fixed'),day=+x.date.slice(8,10);
+  sheet('עריכת הוצאה קבועה',
+   '<div class="note" style="margin-bottom:15px">💡 הוצאה קבועה תמיד חוזרת — השמירה תהפוך אותה להוראת קבע אמיתית שתירשם אוטומטית כל חודש מעכשיו.</div>'+
+   '<div class="fld"><label>שם ההוצאה</label><input id="rName" type="text" value="'+esc(x.note||CALC.cat(x.categoryId).name)+'"/></div>'+
+   '<div class="fld"><label>קטגוריה</label><select id="rCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
+   '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(!x.cardId?'selected':'')+'>מהעו"ש</option>'+
+     DB.cards.map(c=>'<option value="'+c.id+'" '+(x.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
+   '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+day+'"/></div></div>'+
+   '<div class="fld"><label>סוג הוראה</label><div class="seg"><button id="rTypeReg" class="on" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
+   '<div id="rRegWrap"><div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+x.amount+'"/></div></div>'+
+   '<div id="rInstWrap" style="display:none"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0"/></div>'+
+     '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="12"/></div></div>'+
+     '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div></div>'+
+   '<button class="btn" style="margin-top:8px" onclick="saveFixedEdit(\''+id+'\')">שמור</button>'+
+   '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה (בלי להפוך להוראת קבע)</button>',
+   ()=>{updateInstPreview();['rTotal','rCount'].forEach(iid=>{const e=el(iid);if(e)e.addEventListener('input',updateInstPreview);});});
+}
+function saveFixedEdit(txId){
+  const n=el('rName').value.trim(),d=+el('rDay').value;
+  if(!n)return toast('הזן שם');
+  const mv=el('rMethod').value,isCard=mv!=='account';
+  const isInst=el('rTypeInst').classList.contains('on');
+  const start=curYM()+'-01';
+  let amount,installmentTotal=null,endDate=null;
+  if(isInst){
+    const total=parseFloat(el('rTotal').value),count=+el('rCount').value;
+    if(!total||total<=0||!count||count<2)return toast('הזן סכום כולל ומספר תשלומים (לפחות 2)');
+    amount=Math.round((total/count)*100)/100;installmentTotal=count;
+    endDate=dayIn(addM(start,count-1),d);
+  }else{
+    amount=parseFloat(el('rAmt').value);
+    if(!amount||amount<=0)return toast('הזן סכום');
+  }
+  DB.recurring.push({id:uid('rec'),name:n,amount:amount,categoryId:el('rCat').value,
+    method:isCard?'card':'account',cardId:isCard?mv:null,dayOfMonth:d,
+    startDate:start,endDate:endDate,active:true,direction:'out',installmentTotal:installmentTotal,goalId:null});
+  // התנועה הבודדת הישנה מוחלפת בתנועה שההוראה החדשה תייצר לחודש הנוכחי — כדי שלא ייספר פעמיים
+  DB.transactions=DB.transactions.filter(t=>t.id!==txId);
+  save();genRecurring();closeSheet();render();toast('נשמר כהוראת קבע');
+}
+function openVariableEdit(id){
+  const x=DB.transactions.find(t=>t.id===id);if(!x)return;
+  TX=id;
+  const cd=x.cardId?CALC.card(x.cardId):null,cats=DB.categories.filter(k=>k.kind==='variable');
+  sheet('עריכת הוצאה משתנה',
+   '<div class="fld"><input id="vAmt" class="amtin" type="number" inputmode="decimal" value="'+x.amount+'"/></div>'+
+   '<div class="fld"><label>שם ההוצאה</label><input id="vName" type="text" value="'+esc(x.note||'')+'"/></div>'+
+   '<div class="fld"><label>קטגוריה</label><select id="vCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
+   '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="vMethod"><option value="cash" '+(x.method==='cash'?'selected':'')+'>מזומן</option><option value="account" '+(x.method==='account'?'selected':'')+'>מהעו"ש</option>'+
+     DB.cards.map(c=>'<option value="'+c.id+'" '+(x.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
+   '<div class="fld"><label>תאריך ההוצאה</label><input id="vDate" type="date" value="'+x.date+'"/></div></div>'+
+   '<button class="btn" onclick="saveVariableEdit(\''+id+'\')">שמור שינויים</button>'+
+   '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה</button>');
+}
+function saveVariableEdit(txId){
+  const x=DB.transactions.find(t=>t.id===txId);if(!x)return;
+  const a=parseFloat(el('vAmt').value);
+  if(!a||a<=0)return toast('הזן סכום');
+  const mv=el('vMethod').value,isCard=mv!=='account'&&mv!=='cash';
+  x.amount=a;x.categoryId=el('vCat').value;x.note=el('vName').value.trim();
+  x.method=isCard?'card':mv;x.cardId=isCard?mv:null;
+  const nd=el('vDate').value||x.date;
+  x.date=nd;x.chargeDate=isCard?CALC.chargeDate(nd,CALC.card(mv)):nd;
+  save();closeSheet();render();toast('עודכן ✓');
 }
 
 /* ---- ניהול קטגוריות ---- */
