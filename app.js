@@ -19,13 +19,26 @@ const SUPABASE_URL='https://pitsegijcwutmnswmime.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_RpaHlw90n1u90IZVCBn33w_w4p74H-b';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let CURRENT_USER=null,syncTimer=null;
+// "הכרתי" — חותמת הזמן העדכנית ביותר מהענן שראינו בפועל (מטעינה או משמירה מוצלחת).
+// לפני כל שמירה בודקים מול זה: אם בענן יש עכשיו חותמת מאוחרת יותר — מישהו (מכשיר אחר)
+// כבר שמר שינויים שלא ראינו, ואסור לדרוס אותם בשקט. זו לא נעילה אמיתית (יש חלון מרוץ
+// קטן בין הבדיקה לשמירה), אבל היא תופסת את המקרה הנפוץ ומזהירה במקום "אחרון שכותב מנצח".
+let knownCloudUpdatedAt=null,syncConflict=false;
 
 function syncToCloud(){
   if(!CURRENT_USER)return;
   clearTimeout(syncTimer);
   syncTimer=setTimeout(async()=>{
     try{
-      await sb.from('financeme_state').upsert({user_id:CURRENT_USER.id,data:DB,updated_at:new Date().toISOString()});
+      if(knownCloudUpdatedAt){
+        const {data:cur}=await sb.from('financeme_state').select('updated_at').eq('user_id',CURRENT_USER.id).maybeSingle();
+        if(cur&&cur.updated_at&&cur.updated_at!==knownCloudUpdatedAt){
+          syncConflict=true;setSyncBadge('conflict');return; // לא שומרים — יידרש פתרון ידני דרך הסמל
+        }
+      }
+      const nowIso=new Date().toISOString();
+      await sb.from('financeme_state').upsert({user_id:CURRENT_USER.id,data:DB,updated_at:nowIso});
+      knownCloudUpdatedAt=nowIso;syncConflict=false;
       setSyncBadge('ok');
     }catch(e){
       // אופליין / שגיאת רשת — ה-localStorage כבר מעודכן; הניסיון הבא ב-save() הבא ינסה שוב
@@ -35,18 +48,45 @@ function syncToCloud(){
 }
 function setSyncBadge(state){
   const b=document.getElementById('syncBadge');if(!b)return;
-  b.textContent=state==='ok'?'☁️':(state==='err'?'⚠️':'⏳');
-  b.title=state==='ok'?'מסונכרן לענן':(state==='err'?'לא הצליח להתחבר לענן — עובד מהעותק המקומי':'מסנכרן...');
+  b.textContent=state==='ok'?'☁️':(state==='err'?'⚠️':(state==='conflict'?'🔀':'⏳'));
+  b.title=state==='ok'?'מסונכרן לענן':(state==='err'?'לא הצליח להתחבר לענן — עובד מהעותק המקומי':
+    (state==='conflict'?'זוהה שינוי ממכשיר אחר — לחץ לפתרון':'מסנכרן...'));
+}
+function handleSyncBadgeClick(){
+  if(!syncConflict)return;
+  sheet('זוהה שינוי ממכשיר אחר',
+    '<div class="note" style="margin-bottom:18px">מכשיר אחר שמר שינויים לענן אחרי שהמסך הזה נטען, ולא ברור אם הם כבר כלולים כאן. כדי לא לאבד נתונים בטעות — תבחר איך להמשיך:</div>'+
+    '<button class="btn" onclick="resolveConflict(\'reload\')">טען את הגרסה מהענן (ותאבד שינויים שעשית כאן עכשיו)</button>'+
+    '<button class="btn dgr" style="margin-top:10px" onclick="resolveConflict(\'overwrite\')">שמור את מה שיש כאן בכל זאת (ותדרוס את הענן)</button>');
+}
+async function resolveConflict(choice){
+  closeSheet();
+  if(choice==='reload'){
+    const ok=await loadFromCloud();
+    if(ok){render();toast('נטען מהענן ✓');}
+  }else{
+    knownCloudUpdatedAt=null;syncConflict=false; // מדלגים על בדיקת ההתנגשות בסבב הזה בכוונה
+    await syncToCloudForce();
+  }
+}
+async function syncToCloudForce(){
+  if(!CURRENT_USER)return;
+  try{
+    const nowIso=new Date().toISOString();
+    await sb.from('financeme_state').upsert({user_id:CURRENT_USER.id,data:DB,updated_at:nowIso});
+    knownCloudUpdatedAt=nowIso;syncConflict=false;setSyncBadge('ok');toast('נשמר לענן ✓');
+  }catch(e){setSyncBadge('err');}
 }
 async function loadFromCloud(){
   if(!CURRENT_USER)return false;
   try{
-    const {data,error}=await sb.from('financeme_state').select('data').eq('user_id',CURRENT_USER.id).maybeSingle();
+    const {data,error}=await sb.from('financeme_state').select('data,updated_at').eq('user_id',CURRENT_USER.id).maybeSingle();
     if(error||!data||!data.data)return false;
     const d=data.data;
     if(!d||!d.version)return false;
     DB=Object.assign(blank(),d);migrate();
     try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+    knownCloudUpdatedAt=data.updated_at||null;syncConflict=false;
     setSyncBadge('ok');
     return true;
   }catch(e){setSyncBadge('err');return false;}

@@ -205,4 +205,4 @@ nav .spacer{pointer-events:none;visibility:hidden}
 .toast{position:fixed;bottom:calc(100px + var(--safe-b));right:50%;transform:translateX(50%);background:#0f172a;color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:600;z-index:300;box-shadow:var(--shadow-lg);animation:fade .2s;max-width:90vw;text-align:center}
 
 /* ---------- login (Supabase) ---------- */
-#syncBadge{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px}
+#syncBadge{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer}
