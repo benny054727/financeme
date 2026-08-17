@@ -895,8 +895,7 @@ function openEntry(){
    '<div class="fld"><input id="eAmt" class="amtin" type="number" inputmode="decimal" placeholder="0" oninput="prevCharge()"/></div>'+
    '<div class="fld" id="eKindWrap"><label>סוג ההוצאה</label><div id="eKinds" class="chips">'+
      '<button class="chip" data-k="fixed" onclick="setKind(this)">קבועה</button>'+
-     '<button class="chip on" data-k="variable" onclick="setKind(this)">משתנה</button>'+
-     '<button class="chip" data-k="saving" onclick="setKind(this)">חיסכון</button></div></div>'+
+     '<button class="chip on" data-k="variable" onclick="setKind(this)">משתנה</button></div></div>'+
    '<div class="fld"><label>קטגוריה</label><div id="eCats" class="catgrid"></div></div>'+
    '<div class="fld" id="eMethodWrap"><label>אמצעי תשלום</label><div id="eMethods" class="chips"></div></div>'+
    '<div class="fld" id="eIncWrap" style="display:none"><label>סוג הכנסה</label><div class="chips">'+
@@ -942,8 +941,31 @@ function renderCats(){
   // (fixed/variable/saving), אז הבחירה כאן היא סינון של הרשימה, לא שדה נפרד על התנועה.
   const kinds=E.dir==='in'?['income']:[E.kind];
   const cats=DB.categories.filter(c=>kinds.includes(c.kind));
-  el('eCats').innerHTML=cats.map(c=>'<button class="cat'+(E.cat===c.id?' on':'')+'" data-c="'+c.id+'"><span class="ci">'+c.icon+'</span><span class="cn">'+esc(c.name)+'</span></button>').join('');
-  el('eCats').querySelectorAll('.cat').forEach(b=>b.onclick=()=>{E.cat=b.dataset.c;renderCats();prevCharge();});
+  el('eCats').innerHTML=cats.map(c=>'<button class="cat'+(E.cat===c.id?' on':'')+'" data-c="'+c.id+'"><span class="ci">'+c.icon+'</span><span class="cn">'+esc(c.name)+'</span></button>').join('')+
+    '<button type="button" class="cat addcat" id="catAddBtn" onclick="showAddCatInline()"><span class="ci">➕</span><span class="cn">קטגוריה חדשה</span></button>';
+  el('eCats').querySelectorAll('.cat[data-c]').forEach(b=>b.onclick=()=>{E.cat=b.dataset.c;renderCats();prevCharge();});
+}
+/* הוספת קטגוריה חדשה בלי לצאת מרישום התנועה — טופס קטן שנפתח בתוך רשת הקטגוריות
+   עצמה (לא sheet מקונן, כי sheet() לא בנוי לערימה של כמה מסכים זה על זה) */
+function showAddCatInline(){
+  const btn=el('catAddBtn');if(!btn)return;
+  btn.outerHTML='<div id="eCatAdd" style="grid-column:1/-1;border:1.5px dashed var(--border);border-radius:14px;padding:12px;background:#f8fafc">'+
+    '<div class="row2"><select id="eCatIcon" style="flex:0 0 62px">'+ICONS.map(i=>'<option value="'+i+'">'+i+'</option>').join('')+'</select>'+
+    '<input id="eCatName" type="text" placeholder="שם הקטגוריה החדשה" style="flex:1"/></div>'+
+    '<div class="btnrow" style="margin-top:8px"><button type="button" class="btn sec" style="padding:10px;font-size:13px" onclick="renderCats()">ביטול</button>'+
+    '<button type="button" class="btn" style="padding:10px;font-size:13px" onclick="confirmAddCatInline()">הוסף</button></div></div>';
+  setTimeout(()=>{const n=el('eCatName');if(n)n.focus();},50);
+}
+function confirmAddCatInline(){
+  const name=el('eCatName').value.trim();
+  if(!name)return toast('הזן שם לקטגוריה');
+  const icon=el('eCatIcon').value||'🏷️';
+  const id=uid('cat');
+  DB.categories.push({id:id,name:name,icon:icon,kind:E.kind,budget:0});
+  save();
+  E.cat=id;
+  renderCats();prevCharge();
+  toast('הקטגוריה נוספה ✓');
 }
 function renderMethods(){
   let h='<button class="chip'+(E.method==='account'?' on':'')+'" data-m="account">מהעו"ש</button>'+

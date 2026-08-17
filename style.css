@@ -180,6 +180,8 @@ nav .spacer{pointer-events:none;visibility:hidden}
 .cat .ci{font-size:19px;display:block;margin-bottom:3px}
 .cat .cn{font-size:9.5px;color:var(--muted);font-weight:600;line-height:1.15;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cat.on .cn{color:var(--balance);font-weight:700}
+.cat.addcat{border-style:dashed;background:transparent}
+.cat.addcat .ci,.cat.addcat .cn{color:var(--muted)}
 .btn{width:100%;padding:15px;border:none;border-radius:15px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(37,99,235,.32)}
 .btn:active{transform:scale(.985)}
 .btn.sec{background:#f1f5f9;color:var(--text);box-shadow:none}
