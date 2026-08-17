@@ -739,7 +739,6 @@ function categoryDetail(catId){
     });
     h+='<div style="margin-bottom:16px"></div>';
   }
-  h+='<div class="btnrow" style="margin-bottom:16px"><button class="btn sec" onclick="openCats()">ערוך שם / תקציב / סוג קטגוריה</button></div>';
   h+=txs.length?txs.map(txRow).join(''):'<div class="empty"><b>אין תנועות בקטגוריה זו החודש</b></div>';
   sheet(c.icon+' '+c.name,h);
 }
