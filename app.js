@@ -62,7 +62,7 @@ function handleSyncBadgeClick(){
 async function resolveConflict(choice){
   closeSheet();
   if(choice==='reload'){
-    const ok=await loadFromCloud();
+    const ok=await loadFromCloud(true); // force — המשתמש ביקש מפורשות לזרוק את המקומי ולקחת את הענן
     if(ok){render();toast('נטען מהענן ✓');}
   }else{
     knownCloudUpdatedAt=null;syncConflict=false; // מדלגים על בדיקת ההתנגשות בסבב הזה בכוונה
@@ -77,13 +77,30 @@ async function syncToCloudForce(){
     knownCloudUpdatedAt=nowIso;syncConflict=false;setSyncBadge('ok');toast('נשמר לענן ✓');
   }catch(e){setSyncBadge('err');}
 }
-async function loadFromCloud(){
+async function loadFromCloud(force){
   if(!CURRENT_USER)return false;
   try{
     const {data,error}=await sb.from('financeme_state').select('data,updated_at').eq('user_id',CURRENT_USER.id).maybeSingle();
     if(error||!data||!data.data)return false;
     const d=data.data;
     if(!d||!d.version)return false;
+    // אם יש עותק מקומי עם שינוי שעוד לא הספיק להיסנכרן לענן (למשל רענון דף מיד אחרי
+    // שמירה, לפני שההשהיה של syncToCloud שלחה אותו) — לא דורסים אותו בשקט בגרסה ישנה
+    // יותר מהענן. משווים את חותמת הזמן המקומית מול updated_at שהענן מדווח.
+    // force=true (מ"טען את הגרסה מהענן" בפתרון התנגשות) מדלג על הבדיקה הזו בכוונה —
+    // שם המשתמש מבקש במפורש לזרוק את המקומי ולקחת את הענן, לא להגן על המקומי.
+    if(!force)try{
+      const raw=localStorage.getItem(KEY);
+      if(raw){
+        const localDB=JSON.parse(raw);
+        const localTs=localDB&&localDB.meta&&localDB.meta.localSavedAt;
+        if(localTs&&data.updated_at&&localTs>data.updated_at){
+          const ok=load(); // טוען את המקומי (החדש יותר) לתוך DB, במקום את הענן
+          if(ok){knownCloudUpdatedAt=data.updated_at||null;syncConflict=false;syncToCloud();} // דוחפים את המקומי לענן כדי להדביק את הפער
+          return ok;
+        }
+      }
+    }catch(e){}
     DB=Object.assign(blank(),d);migrate();
     try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
     knownCloudUpdatedAt=data.updated_at||null;syncConflict=false;
@@ -162,7 +179,7 @@ function blank(){return{
    alertThresholds:{budgetWarn:85,cardDeviation:25,lowBalanceDays:7}},
  account:{id:'acc_1',name:'עו"ש',openingBalance:0,openingDate:null,lastUpdated:null},
  cards:[],categories:DEFAULT_CATS.slice(),transactions:[],recurring:[],goals:[],loans:[],
- meta:{lastGen:null,lastMethod:null,skipRec:[],lastBackup:null}
+ meta:{lastGen:null,lastMethod:null,skipRec:[],lastBackup:null,localSavedAt:null}
 };}
 let DB=blank();
 function load(){try{const r=localStorage.getItem(KEY);if(!r)return false;const d=JSON.parse(r);if(!d||!d.version)return false;DB=Object.assign(blank(),d);migrate();return true;}catch(e){return false;}}
@@ -183,6 +200,7 @@ function migrate(){
   if(!Array.isArray(DB.loans))DB.loans=[];
   DB.loans.forEach(loan=>{if(!loan.payDay)loan.payDay=10;});
   if(DB.meta.lastBackup===undefined)DB.meta.lastBackup=null;
+  if(DB.meta.localSavedAt===undefined)DB.meta.localSavedAt=null;
   if(!Array.isArray(DB.meta.skipRec))DB.meta.skipRec=[];
   if(!Array.isArray(DB.categories)||!DB.categories.length)DB.categories=DEFAULT_CATS.slice();
   if(!Array.isArray(DB.cards))DB.cards=[];
@@ -215,7 +233,14 @@ function migrate(){
     }
   });
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('שגיאת שמירה — האחסון מלא');}syncToCloud();}
+function save(){
+  // חותמת זמן מקומית — כדי שבטעינה הבאה (למשל רענון דף מיד אחרי שמירה, לפני שההשהיה
+  // של syncToCloud הספיקה לשלוח את זה לענן) נדע לזהות שהעותק המקומי חדש יותר מהענן
+  // ולא נדרוס אותו בטעות בגרסה ישנה — ראו loadFromCloud()
+  DB.meta.localSavedAt=new Date().toISOString();
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('שגיאת שמירה — האחסון מלא');}
+  syncToCloud();
+}
 function uid(p){return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 
 /* ============================================================
