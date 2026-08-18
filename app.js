@@ -793,7 +793,19 @@ function vExpenses(){
   }
   return h;
 }
-function delRec(id){if(!confirm('למחוק את הוראת הקבע? תנועות שכבר נרשמו יישארו.'))return;DB.recurring=DB.recurring.filter(r=>r.id!==id);save();closeSheet();render();toast('נמחק');}
+function delRec(id){
+  const r=DB.recurring.find(x=>x.id===id);if(!r)return;
+  // אם כבר נוצרה תנועה החודש מההוראה הזו — משאירים אותה "יתומה" (בלי לקשר אותה
+  // לשום recurring) זו התנהגות מבלבלת: המשתמש רואה כסף שהוא כבר מחק עדיין נספר
+  // בכל מקום (עוגה/תנועות/דף הבית). לכן, בניגוד לחודשים קודמים (שנשארים בהיסטוריה
+  // בכוונה — "עריכה משפיעה קדימה בלבד"), תנועת החודש הנוכחי נמחקת יחד עם ההוראה.
+  const curTxId='rec_'+id+'_'+curYM();
+  const hasCurTx=DB.transactions.some(x=>x.id===curTxId);
+  if(!confirm(hasCurTx?'למחוק את הוראת הקבע? התנועה שכבר נרשמה החודש הזה תימחק גם היא. תנועות מחודשים קודמים יישארו.':'למחוק את הוראת הקבע? תנועות שכבר נרשמו יישארו.'))return;
+  DB.recurring=DB.recurring.filter(x=>x.id!==id);
+  if(hasCurTx)DB.transactions=DB.transactions.filter(x=>x.id!==curTxId);
+  save();closeSheet();render();toast('נמחק');
+}
 function restoreSkippedRec(recId){
   const id='rec_'+recId+'_'+curYM();
   DB.meta.skipRec=DB.meta.skipRec.filter(x=>x!==id);
