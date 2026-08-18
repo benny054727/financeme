@@ -896,10 +896,14 @@ function catSummary(catId){
 /* ============================================================
    7. SHEETS — מודאלים
    ============================================================ */
-function sheet(title,body,onOpen){
+// backFn (אופציונלי): שם פונקציה (מחרוזת, בלי ()) שפותחת את המסך ההורה — למשל
+// 'openSettings'. כשמוגדר, מוצג כפתור "‹ חזרה" ליד הכותרת, בנוסף ל-✕ שסוגר לגמרי.
+function sheet(title,body,onOpen,backFn){
   closeSheet();
   const ov=document.createElement('div');ov.className='ov';ov.id='ov';
-  ov.innerHTML='<div class="sheet"><div class="grab"></div><div class="shead"><h3>'+esc(title)+'</h3><button class="xbtn" onclick="closeSheet()">✕</button></div>'+body+'</div>';
+  ov.innerHTML='<div class="sheet"><div class="grab"></div><div class="shead"><div class="shead-lead">'+
+    (backFn?'<button class="backbtn" onclick="'+backFn+'()">‹ חזרה</button>':'')+
+    '<h3>'+esc(title)+'</h3></div><button class="xbtn" onclick="closeSheet()">✕</button></div>'+body+'</div>';
   ov.addEventListener('click',e=>{if(e.target===ov)closeSheet();});
   document.body.appendChild(ov);
   if(onOpen)onOpen();
@@ -1196,13 +1200,20 @@ function saveVariableEdit(txId){
 /* ---- ניהול קטגוריות ---- */
 let tmpCats=[];
 const ICONS=['🏠','🚗','⚡','🏛️','📱','🌐','💊','🎬','💪','🛡️','🛒','⛽','🍔','🎉','👕','🛋️','🎒','🏥','🚌','🛍️','🪙','💼','🎖️','➕','✈️','🎁','📚','🐶','💇','🔧','☕','🍼'];
+// תצוגת "אקורדיון": כל קטגוריה מוצגת כשורה קומפקטית אחת (כמו שאר הרשימות
+// באפליקציה) ורק הקטגוריה שנלחצה נפתחת לשדות העריכה המלאים — כדי שרשימה
+// של 20+ קטגוריות תישאר קלילה לסריקה ולא תיאלץ גלילה ארוכה של כרטיסים
+// גדולים. catEditIdx מצביע לאינדקס הפתוח היחיד (או null אם הרשימה סגורה).
+let catEditIdx=null;
 function openCats(){
   tmpCats=JSON.parse(JSON.stringify(DB.categories));
+  catEditIdx=null;
   sheet('קטגוריות',
-   '<div class="note" style="margin-bottom:14px">התקציב רלוונטי לקטגוריות משתנות — הוא מזין את מד ההתקדמות והתראת קצב ההוצאות.</div>'+
+   '<div class="note" style="margin-bottom:14px">התקציב רלוונטי לקטגוריות משתנות — הוא מזין את מד ההתקדמות והתראת קצב ההוצאות. לחץ על קטגוריה כדי לערוך אותה.</div>'+
    '<div id="catRows"></div><button class="addrow" onclick="addCatRow()">+ הוסף קטגוריה</button>'+
-   '<button class="btn" onclick="saveCats()">שמור</button>',paintCats);
+   '<button class="btn" onclick="saveCats()">שמור</button>',paintCats,'openSettings');
 }
+function toggleCatEdit(i){catEditIdx=catEditIdx===i?null:i;paintCats();}
 function paintCats(){
   const w=el('catRows');if(!w)return;
   const order={fixed:0,variable:1,saving:2,income:3};
@@ -1212,6 +1223,12 @@ function paintCats(){
   idx.forEach(i=>{
     const c=tmpCats[i];
     if(c.kind!==last){last=c.kind;h+='<div class="stitle" style="font-size:13px;margin:18px 0 10px">'+lbl[c.kind]+'</div>';}
+    if(catEditIdx!==i){
+      const budgetTag=c.kind==='variable'&&c.budget?' · תקציב '+fmt(c.budget):'';
+      h+='<div class="eitem tap" onclick="toggleCatEdit('+i+')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(c.name||'(ללא שם)')+'</div>'+
+        '<div class="etag">'+lbl[c.kind]+budgetTag+'</div></div></div>';
+      return;
+    }
     const used=DB.transactions.filter(t=>t.categoryId===c.id).length;
     h+='<div class="cardrow"><div class="crh"><span>'+(used?used+' תנועות':'לא בשימוש')+'</span>'+
       '<button class="delx" onclick="rmCat('+i+')">✕</button></div>'+
@@ -1219,11 +1236,12 @@ function paintCats(){
       '<div class="fld"><select onchange="tmpCats['+i+'].icon=this.value">'+ICONS.map(ic=>'<option value="'+ic+'" '+(c.icon===ic?'selected':'')+'>'+ic+'</option>').join('')+'</select></div></div>'+
       '<div class="row2"><div class="fld"><label>סוג</label><select onchange="tmpCats['+i+'].kind=this.value;paintCats()">'+
         ['fixed','variable','saving','income'].map(k=>'<option value="'+k+'" '+(c.kind===k?'selected':'')+'>'+lbl[k]+'</option>').join('')+'</select></div>'+
-      '<div class="fld"><label>תקציב חודשי</label><input type="number" value="'+(c.budget||0)+'" oninput="tmpCats['+i+'].budget=+this.value"/></div></div></div>';
+      '<div class="fld"><label>תקציב חודשי</label><input type="number" value="'+(c.budget||0)+'" oninput="tmpCats['+i+'].budget=+this.value"/></div></div>'+
+      '<button class="btn sec" style="margin-top:2px" onclick="toggleCatEdit('+i+')">סגור</button></div>';
   });
   w.innerHTML=h;
 }
-function addCatRow(){tmpCats.push({id:uid('cat'),name:'',icon:'🛍️',kind:'variable',budget:0});paintCats();}
+function addCatRow(){tmpCats.push({id:uid('cat'),name:'',icon:'🛍️',kind:'variable',budget:0});catEditIdx=tmpCats.length-1;paintCats();}
 function rmCat(i){
   const c=tmpCats[i],used=DB.transactions.filter(t=>t.categoryId===c.id);
   if(used.length){
@@ -1232,7 +1250,7 @@ function rmCat(i){
     if(!confirm('ל"'+c.name+'" יש '+used.length+' תנועות. הן יועברו ל"'+fb.name+'". להמשיך?'))return;
     used.forEach(t=>t.categoryId=fb.id);
   }
-  tmpCats.splice(i,1);paintCats();
+  tmpCats.splice(i,1);catEditIdx=null;paintCats();
 }
 function saveCats(){
   const clean=tmpCats.filter(c=>c.name.trim());
@@ -1474,7 +1492,7 @@ function openSettings(){
 function openAccountSettings(){
   sheet('חשבון',
    '<div class="note" style="margin-bottom:18px">מחובר כ-'+esc(CURRENT_USER?CURRENT_USER.email:'')+' · הנתונים מסונכרנים לענן ונגישים מכל מכשיר.</div>'+
-   '<button class="btn sec" onclick="doSignOut()">התנתק</button>');
+   '<button class="btn sec" onclick="doSignOut()">התנתק</button>',null,'openSettings');
 }
 function openFinancialSettings(){
   const S=DB.settings;
@@ -1482,7 +1500,7 @@ function openFinancialSettings(){
    '<div class="fld"><label>כרית ביטחון — סכום שלא לרדת מתחתיו</label><input id="stBuf" type="number" value="'+S.safetyBuffer+'"/></div>'+
    '<div class="fld"><label>מסגרת אשראי בעו"ש</label><input id="stOd" type="number" value="'+S.overdraftLimit+'"/></div>'+
    '<div class="fld"><label>יעד הוצאות חודשי (0 = בלי יעד)</label><input id="stTarget" type="number" value="'+(S.monthlyExpenseTarget||0)+'"/><div class="hint">סכום ההוצאות הכולל שאתה שואף לא לחרוג ממנו — קבועות, משתנות, הלוואות וחיסכון ביחד</div></div>'+
-   '<button class="btn" onclick="saveFinancialSettings()">שמור</button>');
+   '<button class="btn" onclick="saveFinancialSettings()">שמור</button>',null,'openSettings');
 }
 function saveFinancialSettings(){
   DB.settings.safetyBuffer=+el('stBuf').value||0;
@@ -1495,7 +1513,7 @@ function openLoanSettings(){
   sheet('הלוואות וריבית',
    '<div class="fld"><label>ריבית בנק ישראל הנוכחית (%)</label><input id="stBoi" type="number" step="0.01" value="'+(S.boiRate||0)+'"/><div class="hint">משמשת לחישוב כל מסלולי הפריים בהלוואות. עדכן ידנית כשבנק ישראל משנה את הריבית — למערכת אין גישה לאינטרנט.'+(S.boiRateUpdated?' עודכן לאחרונה: '+dLabel(S.boiRateUpdated)+'.':'')+'</div></div>'+
    '<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="stLoanBal" type="checkbox" style="width:auto" '+(S.loansAffectBalance?'checked':'')+'/> כלול תשלומי הלוואות ביתרה הזמינה ובתחזית</label><div class="hint">כשמסומן, תשלום ההלוואה (לפי "יום חיוב" שהגדרת לה) יורד מ"יתרה זמינה" ומהתחזית — בדיוק כמו חיוב אשראי. בטל אם אתה כבר עוקב אחרי אותו חיוב בנפרד כהוראת קבע, כדי לא לספור פעמיים.</div></div>'+
-   '<button class="btn" onclick="saveLoanSettings()">שמור</button>');
+   '<button class="btn" onclick="saveLoanSettings()">שמור</button>',null,'openSettings');
 }
 function saveLoanSettings(){
   const newBoi=+el('stBoi').value||0;
@@ -1509,7 +1527,7 @@ function openCardSettings(){
    '<div id="stCards"></div>'+
    '<button class="addrow" onclick="addCardRow()">+ הוסף כרטיס</button>'+
    '<button class="btn" onclick="saveCards()">שמור</button>',
-   drawCardRows);
+   drawCardRows,'openSettings');
 }
 function saveCards(){
   DB.cards=tmpCards.filter(c=>c.name.trim());
@@ -1524,7 +1542,7 @@ function openBackupSettings(){
    '<input type="file" id="impF" accept=".json" style="display:none" onchange="importDB(this)"/>'+
    '<div class="dangerzone"><div class="dztitle">⚠️ אזור מסוכן</div>'+
    '<div class="note" style="margin-bottom:12px">איפוס ימחק את כל הנתונים — תנועות, קטגוריות, הלוואות, יעדים וכל ההגדרות — לצמיתות. אין דרך לשחזר.</div>'+
-   '<button class="btn dgr" onclick="resetAll()">אפס הכל</button></div>');
+   '<button class="btn dgr" onclick="resetAll()">אפס הכל</button></div>',null,'openSettings');
 }
 function drawCardRows(){
   tmpCards=JSON.parse(JSON.stringify(DB.cards));
