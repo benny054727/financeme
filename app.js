@@ -178,7 +178,7 @@ function blank(){return{
  settings:{currency:'ILS',overdraftLimit:0,safetyBuffer:1000,monthlyExpenseTarget:0,boiRate:0,boiRateUpdated:null,loansAffectBalance:true,
    alertThresholds:{budgetWarn:85,cardDeviation:25,lowBalanceDays:7}},
  account:{id:'acc_1',name:'עו"ש',openingBalance:0,openingDate:null,lastUpdated:null},
- cards:[],categories:DEFAULT_CATS.slice(),transactions:[],recurring:[],goals:[],loans:[],
+ cards:[],categories:DEFAULT_CATS.slice(),transactions:[],recurring:[],goals:[],loans:[],variableIncomes:[],
  meta:{lastGen:null,lastMethod:null,skipRec:[],lastBackup:null,localSavedAt:null}
 };}
 let DB=blank();
@@ -206,6 +206,7 @@ function migrate(){
   if(!Array.isArray(DB.cards))DB.cards=[];
   if(!Array.isArray(DB.transactions))DB.transactions=[];
   if(!Array.isArray(DB.goals))DB.goals=[];
+  if(!Array.isArray(DB.variableIncomes))DB.variableIncomes=[];
   if(!Array.isArray(DB.recurring))DB.recurring=[];
   // תיקון רטרואקטיבי: לפני התיקון, startDate של הוראת קבע חדשה נקבע ל"היום" במקום
   // לתחילת החודש. הוראת קבע שנוספה באמצע החודש עם יום-חודש מוקדם יותר "נבלעה" בשקט —
@@ -506,6 +507,11 @@ function alerts(){
   const varBudget=DB.categories.filter(c=>c.kind==='variable').reduce((s,c)=>s+(c.budget||0),0);
   if(varBudget>0&&m.variable>varBudget*dayPct*1.15){A.push({s:'note',i:'⏩',t:'קצב הוצאות מהיר',d:'עברת '+fmt(m.variable)+' בהוצאות משתנות, מעל הקצב לתקציב '+fmt(varBudget)+'.'});}
   if(m.saving===0&&today().getDate()>=22&&DB.goals.length){A.push({s:'note',i:'🎯',t:'לא הופרש לחיסכון החודש',d:'החודש כמעט נגמר ועדיין לא נרשמה הפקדה.'});}
+  DB.variableIncomes.forEach(v=>{
+    if(!v.active||today().getDate()<v.dayOfMonth)return;
+    const logged=DB.transactions.some(t=>t.direction==='in'&&t.categoryId===v.categoryId&&ym(t.date)===y);
+    if(!logged)A.push({s:'note',i:'💰',t:'לא הוזנה "'+v.name+'" החודש',d:'ה-'+v.dayOfMonth+' לחודש עבר — היכנס לטאב הכנסות ולחץ "הזן" כדי לרשום את הסכום בפועל.'});
+  });
   DB.goals.forEach(g=>{const r=CALC.goal(g);if(r.behind){A.push({s:'note',i:'📉',t:'היעד "'+g.name+'" בפיגור',d:'צריך '+fmt(r.need)+' לחודש במקום '+fmt(g.monthlyPlan)+'.'});}});
   const big=DB.transactions.filter(x=>ym(x.date)===y&&x.direction==='out'&&m.incomeBase>0&&x.amount>m.incomeBase*.15);
   if(big.length){const b=big.sort((a,c)=>c.amount-a.amount)[0];A.push({s:'note',i:'🔍',t:'הוצאה חריגה',d:(b.note||CALC.cat(b.categoryId).name)+' — '+fmt(b.amount)+', מעל 15% מההכנסה.'});}
@@ -758,7 +764,7 @@ function vExpenses(){
     const recs=DB.recurring.filter(r=>isInc?r.direction==='in':r.direction!=='in');
     h+='<div class="box"><div class="stitle" style="cursor:pointer" onclick="recBoxOpen=!recBoxOpen;render()"><span>⚙️</span> '+(isInc?'ניהול הכנסות קבועות':'ניהול הוראות קבע')+'<span class="sright">'+(recBoxOpen?'הסתר ▲':'הצג ▼')+'</span></div>';
     if(recBoxOpen){
-      if(!recs.length)h+='<div class="empty"><b>'+(isInc?'לא הוגדרו הכנסות קבועות':'לא הוגדרו הוראות קבע')+'</b>'+(isInc?'משכורת ודומיה — המערכת תרשום אותן כל חודש אוטומטית. הכנסה שמשתנה כל חודש (כמו פרילנס) עדיף לרשום ידנית בכל פעם דרך "רישום תנועה".':'הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית')+'</div>';
+      if(!recs.length)h+='<div class="empty"><b>'+(isInc?'לא הוגדרו הכנסות קבועות':'לא הוגדרו הוראות קבע')+'</b>'+(isInc?'למשכורת באותו סכום כל חודש. הכנסה שמשתנה (כמו לפי שעות) — למטה, ב"הכנסות משתנות".':'הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית')+'</div>';
       recs.forEach(r=>{const c=CALC.cat(r.categoryId),cd=r.cardId?CALC.card(r.cardId):null;
         // שורה שלמה לחיצה שפותחת מודאל עריכה/מחיקה — אותו דפוס בדיוק כמו שורת קטגוריה למעלה
         const instTag=r.installmentTotal?' · תשלום '+Math.min(r.installmentTotal,Math.max(1,monthsBetweenYM(r.startDate,curYM())+1))+'/'+r.installmentTotal:'';
@@ -768,6 +774,22 @@ function vExpenses(){
       h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openRecurring(null,null'+(isInc?",'in'":'')+')">+ הוסף '+(isInc?'הכנסה קבועה':'הוראת קבע')+'</button>';
     }
     h+='</div>';
+  }
+  if(expTab==='income'){
+    // הכנסה שמשתנה כל חודש (כמו לפי שעות עבודה) — לא הוראת קבע (אין לה סכום קבוע
+    // ליצור ממנו תנועה לבד), רק תזכורת: "בערך ביום הזה מגיעה הכנסה כזו" + קיצור
+    // דרך להזין את הסכום בפועל, וסטטוס אם כבר הוזן החודש
+    h+='<div class="box"><div class="stitle"><span>🔁</span> הכנסות משתנות<span class="sright">'+DB.variableIncomes.length+'</span></div>';
+    if(!DB.variableIncomes.length)h+='<div class="empty"><b>אין הכנסות משתנות מוגדרות</b>למשכורת שמשתנה כל חודש (למשל לפי שעות) — הגדר תזכורת, והמערכת תזכיר לך להזין את הסכום בפועל כל חודש</div>';
+    DB.variableIncomes.forEach(v=>{
+      const c=CALC.cat(v.categoryId);
+      const loggedTx=DB.transactions.filter(t=>t.direction==='in'&&t.categoryId===v.categoryId&&ym(t.date)===y);
+      const loggedAmt=loggedTx.reduce((s,t)=>s+t.amount,0),done=loggedTx.length>0;
+      h+='<div class="eitem tap" style="'+(v.active?'':'opacity:.5')+'" onclick="openVariableIncome(\''+v.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(v.name)+(v.active?'':' · מושהה')+'</div>'+
+        '<div class="etag">בסביבות ה-'+v.dayOfMonth+' לחודש · '+(done?'הוזן החודש':'טרם הוזן החודש')+'</div></div>'+
+        '<div class="eside">'+(done?'<div class="eamt in">'+fmt(loggedAmt)+'</div>':(v.active?'<button class="chip" onclick="event.stopPropagation();logVariableIncome(\''+v.id+'\')">+ הזן</button>':''))+'</div></div>';
+    });
+    h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openVariableIncome()">+ הוסף הכנסה משתנה</button></div>';
   }
   return h;
 }
@@ -1400,6 +1422,62 @@ function saveRec(editId){
 function toggleRec(id){
   const r=DB.recurring.find(x=>x.id===id);if(!r)return;
   r.active=!r.active;save();genRecurring();closeSheet();render();toast(r.active?'ההוראה הופעלה מחדש':'ההוראה הושהתה');
+}
+
+/* ---- הכנסה משתנה (למשל משכורת שעתית) ----
+   לא הוראת קבע: אין לזה סכום קבוע ואין תנועה שנוצרת לבד. זו רק תזכורת —
+   "בסביבות היום הזה מגיעה הכנסה בקטגוריה הזו" — עם קיצור דרך לרישום התנועה
+   בפועל כל חודש (openEntry רגיל, מוזן מראש), ובנוסף התראה אם עבר היום ועדיין
+   לא נרשם החודש כלום באותה קטגוריה. */
+function openVariableIncome(editId){
+  const v=editId?DB.variableIncomes.find(x=>x.id===editId):null;
+  const cats=DB.categories.filter(c=>c.kind==='income');
+  const selCat=v?v.categoryId:(cats[0]?cats[0].id:null);
+  sheet(v?'עריכת הכנסה משתנה':'הכנסה משתנה חדשה',
+   '<div class="note" style="margin-bottom:16px">למשכורת שמשתנה כל חודש (למשל לפי שעות) — לא נוצרת תנועה אוטומטית. המערכת רק תזכיר לך להזין את הסכום בפועל כל חודש.</div>'+
+   '<div class="fld"><label>שם</label><input id="viName" type="text" placeholder="משכורת" value="'+(v?esc(v.name):'')+'"/></div>'+
+   '<div class="fld"><label>קטגוריה</label><select id="viCat">'+cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('')+'</select></div>'+
+   '<div class="fld"><label>סוג הכנסה</label><select id="viIncType">'+
+     [['salary','משכורת'],['reserve','מענק מילואים'],['other','אחר']].map(function(p){return '<option value="'+p[0]+'" '+((v?v.incomeType===p[0]:p[0]==='salary')?'selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></div>'+
+   '<div class="fld"><label>בסביבות איזה יום בחודש היא מגיעה</label><input id="viDay" type="number" min="1" max="31" value="'+(v?v.dayOfMonth:10)+'"/><div class="hint">אם עד היום הזה לא הזנת את הסכום בפועל, נזכיר לך בהתראות</div></div>'+
+   '<button class="btn" onclick="saveVariableIncome('+(v?"'"+v.id+"'":'null')+')">שמור</button>'+
+   (v?'<button class="btn sec" style="margin-top:10px" onclick="toggleVariableIncome(\''+v.id+'\')">'+(v.active?'השהה תזכורת':'הפעל מחדש')+'</button>':'')+
+   (v?'<button class="btn dgr" style="margin-top:10px" onclick="delVariableIncome(\''+v.id+'\')">מחק</button>':''));
+}
+function saveVariableIncome(editId){
+  const n=el('viName').value.trim();
+  if(!n)return toast('הזן שם');
+  const d=+el('viDay').value||10,catId=el('viCat').value,incomeType=el('viIncType').value;
+  const existing=editId?DB.variableIncomes.find(x=>x.id===editId):null;
+  if(existing){
+    existing.name=n;existing.categoryId=catId;existing.incomeType=incomeType;existing.dayOfMonth=d;
+    save();closeSheet();render();toast('עודכן');
+    return;
+  }
+  DB.variableIncomes.push({id:uid('vi'),name:n,categoryId:catId,incomeType:incomeType,dayOfMonth:d,active:true});
+  save();closeSheet();render();toast('נוספה הכנסה משתנה');
+}
+function toggleVariableIncome(id){
+  const v=DB.variableIncomes.find(x=>x.id===id);if(!v)return;
+  v.active=!v.active;save();closeSheet();render();toast(v.active?'התזכורת הופעלה מחדש':'התזכורת הושהתה');
+}
+function delVariableIncome(id){
+  if(!confirm('למחוק את התזכורת? זה לא מוחק תנועות שכבר נרשמו.'))return;
+  DB.variableIncomes=DB.variableIncomes.filter(x=>x.id!==id);
+  save();closeSheet();render();toast('נמחק');
+}
+// קיצור דרך: פותח את "רישום תנועה" הרגיל, ומזין מראש כיוון+קטגוריה+סוג הכנסה
+// לפי ההגדרה — נשאר רק להזין את הסכום בפועל של החודש הזה וללחוץ שמור.
+function logVariableIncome(vId){
+  const v=DB.variableIncomes.find(x=>x.id===vId);
+  openEntry();
+  if(!v)return;
+  setDir('in');
+  E.cat=v.categoryId;
+  incType=v.incomeType||'salary';
+  renderCats();
+  document.querySelectorAll('[data-it]').forEach(x=>x.classList.toggle('on',x.dataset.it===incType));
+  if(el('eNote')&&!el('eNote').value)el('eNote').value=v.name;
 }
 
 /* ---- יעד ---- */
