@@ -70,12 +70,12 @@ main{max-width:900px;margin:-58px auto 0;padding:0 14px;position:relative;z-inde
 .a-good{background:#f0fdf4;border-color:#bbf7d0}.a-good .atx b{color:#15803d}
 
 /* alerts carousel: one alert visible at a time, swipe/scroll for the rest */
-.alertsWrap{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.alertsWrap{display:flex;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .alertsWrap::-webkit-scrollbar{display:none}
 .alertSlide{flex:0 0 100%;width:100%;scroll-snap-align:start}
 .alertSlide .alert{margin-bottom:0}
 .alertDots{display:flex;justify-content:center;gap:6px;margin-top:12px}
-.adot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background .2s,transform .2s}
+.adot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background .2s,transform .2s;cursor:pointer;padding:5px;background-clip:content-box}
 .adot.on{background:var(--balance);transform:scale(1.3)}
 
 /* ---------- budget bar ---------- */
