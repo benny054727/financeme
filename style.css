@@ -224,3 +224,23 @@ nav .spacer{pointer-events:none;visibility:hidden}
 
 /* ---------- login (Supabase) ---------- */
 #syncBadge{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer}
+
+/* ---------- desktop layout (900px ומעלה) ----------
+   מתחת ל-900px הכל נשאר בדיוק כמו במובייל — שום שינוי, אותו קוד בדיוק.
+   מעל זה: הניווט התחתון הופך לסיידבר קבוע מימין (RTL — הצד ה"מתחיל"),
+   וכל עמוד מציג את הכרטיסים שלו בשתי עמודות. זה נעשה עם CSS columns
+   על main#view ולא CSS grid, בכוונה — כדי לא לגעת בשום render() בקוד;
+   כל עמוד ממשיך להחזיר את אותה מחרוזת HTML שטוחה בדיוק כמו היום, ורק
+   העטיפה שסביבה מתפרסת לשתי עמודות. break-inside:avoid מוודא שכרטיס
+   בודד לא נחתך באמצע בין העמודות. */
+@media (min-width:900px){
+  body{padding-bottom:0;padding-right:84px}
+  main{max-width:1100px;column-count:2;column-gap:16px}
+  .hero,.kpi,.box{break-inside:avoid}
+  nav{top:0;bottom:0;right:0;left:auto;width:84px;flex-direction:column;justify-content:flex-start;
+    padding:96px 4px 20px;gap:6px;border-top:none;border-left:1px solid var(--border)}
+  nav .spacer{display:none}
+  nav button{flex:none;padding:10px 2px}
+  nav button .ni{font-size:21px}
+  .fab{bottom:auto;top:24px;left:auto;right:19px;transform:none;width:46px;height:46px;font-size:22px}
+}
