@@ -1732,7 +1732,7 @@ function resetAll(){
 // השאלות: בלעדיהם, יום ראשון באפליקציה תמיד התחיל מ"0 הוצאות קבועות" והתחזית
 // בדף הבית הייתה שקרית עד שממלאים הכל ידנית בהדרגה. כל שלב חדש כן ניתן לדילוג
 // בלחיצה אחת — המטרה היא תחזית קרובה לאמת ביום הראשון, לא טופס ארוך יותר.
-let sStep=0,sData={balance:0,buffer:1000,overdraft:0,cards:[],salary:0,salaryDay:10,
+let sStep=0,sData={balance:0,buffer:1000,overdraft:0,cards:[],salary:0,salaryDay:10,incomeMode:'fixed',
   fixedExpenses:[],
   wantLoan:false,loan:{name:'',principal:0,type:'prime',margin:-0.5,fixedRate:0,termMonths:240,payDay:10},
   wantGoal:false,goal:{name:'',target:0,monthlyPlan:0,saved:0}};
@@ -1752,10 +1752,15 @@ function drawSetup(){
       '<div id="stCards"></div><button class="addrow" onclick="addCardRow()">+ הוסף כרטיס</button>'+
       '<div class="btnrow"><button class="btn sec" onclick="sBack()">חזור</button><button class="btn" onclick="sNext()">המשך</button></div></div>';
   }else if(sStep===2){
+    const isVar=sData.incomeMode==='variable';
     h+='<div class="box"><div class="stitle"><span>💼</span> ההכנסה הקבועה</div>'+
-      '<div class="fld"><label>משכורת חודשית נטו</label><input id="i1" type="number" inputmode="decimal" value="'+(sData.salary||'')+'" placeholder="0"/></div>'+
-      '<div class="fld"><label>יום כניסת המשכורת</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
-      '<div class="note" style="margin-bottom:16px">משכורת שמשתנה כל חודש (למשל לפי שעות), מענק מילואים והכנסות חד-פעמיות — כל אלה אפשר להוסיף בנפרד אחר כך, בטאב "הכנסות".</div>'+
+      '<div class="fld"><label>איך מתקבלת ההכנסה שלך?</label><div class="seg"><button id="sIncFixed" class="'+(isVar?'':'on')+'" onclick="sSetIncomeMode(\'fixed\')">משכורת קבועה</button><button id="sIncVar" class="'+(isVar?'on':'')+'" onclick="sSetIncomeMode(\'variable\')">משתנה כל חודש</button></div></div>'+
+      (isVar
+        ?'<div class="fld"><label>בסביבות איזה יום בחודש היא מגיעה</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
+         '<div class="note" style="margin-bottom:16px">למשכורת לפי שעות או כל הכנסה שהסכום שלה משתנה — לא קובעים סכום מראש. כל חודש נזכיר לך בהתראות להזין את הסכום בפועל, בטאב "הכנסות".</div>'
+        :'<div class="fld"><label>משכורת חודשית נטו</label><input id="i1" type="number" inputmode="decimal" value="'+(sData.salary||'')+'" placeholder="0"/></div>'+
+         '<div class="fld"><label>יום כניסת המשכורת</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
+         '<div class="note" style="margin-bottom:16px">מענק מילואים והכנסות חד-פעמיות תזין בנפרד — הן לא נכללות בבסיס החודשי בכוונה.</div>')+
       '<div class="btnrow"><button class="btn sec" onclick="sBack()">חזור</button><button class="btn" onclick="sNext()">המשך</button></div></div>';
   }else if(sStep===3){
     if(!sData.fixedExpenses.length)sData.fixedExpenses=DB.categories.filter(c=>c.kind==='fixed').map(c=>({catId:c.id,name:c.name,icon:c.icon,checked:false,amount:0,day:5}));
@@ -1821,17 +1826,24 @@ function sSkipLoan(){sData.wantLoan=false;sStep++;drawSetup();}
 function sCancelLoanForm(){sData.wantLoan=false;drawSetup();}
 function sCancelGoalForm(){sData.wantGoal=false;drawSetup();}
 function sSkipGoal(){sData.wantGoal=false;finishSetup();}
+// שדה הסכום (i1) קיים ב-DOM רק במצב "משכורת קבועה" — במצב "משתנה" אין סכום
+// בכלל (זה בדיוק העניין), אז שומרים 0 ולא קוראים אלמנט שלא קיים.
+function sReadIncomeFields(){
+  if(sData.incomeMode==='fixed')sData.salary=+el('i1').value||0;else sData.salary=0;
+  sData.salaryDay=+el('i2').value||10;
+}
+function sSetIncomeMode(mode){sReadIncomeFields();sData.incomeMode=mode;drawSetup();}
 function sNext(){
   if(sStep===0){sData.balance=+el('i1').value||0;sData.buffer=+el('i2').value||0;sData.overdraft=+el('i3').value||0;
     if(!tmpCards.length)tmpCards=[];}
   if(sStep===1){sData.cards=tmpCards.filter(c=>c.name.trim());}
-  if(sStep===2){sData.salary=+el('i1').value||0;sData.salaryDay=+el('i2').value||10;}
+  if(sStep===2)sReadIncomeFields();
   if(sStep===4)sReadLoanFields();
   sStep++;drawSetup();
 }
 function sBack(){
   if(sStep===1)sData.cards=tmpCards.filter(c=>c.name.trim());
-  if(sStep===2){sData.salary=+el('i1').value||0;sData.salaryDay=+el('i2').value||10;}
+  if(sStep===2)sReadIncomeFields();
   if(sStep===4)sReadLoanFields();
   sStep--;drawSetup();
 }
@@ -1844,7 +1856,11 @@ function finishSetup(){
   DB.account.openingBalance=sData.balance;DB.account.openingDate=iso(today());DB.account.lastUpdated=iso(today());
   DB.settings.safetyBuffer=sData.buffer;DB.settings.overdraftLimit=sData.overdraft;
   DB.cards=sData.cards;
-  if(sData.salary>0){
+  if(sData.incomeMode==='variable'){
+    // "משתנה כל חודש" — לא הוראת קבע (אין סכום קבוע ליצור ממנו תנועה לבד),
+    // רק תזכורת חודשית שתופיע בטאב "הכנסות" (בדיוק כמו openVariableIncome)
+    DB.variableIncomes.push({id:uid('vi'),name:'משכורת',categoryId:'c_salary',incomeType:'salary',dayOfMonth:sData.salaryDay,active:true});
+  }else if(sData.salary>0){
     // startDate = תחילת החודש הנוכחי, לא "היום" — כדי שהמשכורת של החודש הזה תיווצר
     // גם אם יום הכניסה שלה כבר עבר (למשל מתקינים באפליקציה ב-15 לחודש, משכורת ב-10)
     DB.recurring.push({id:uid('rec'),name:'משכורת',amount:sData.salary,categoryId:'c_salary',
