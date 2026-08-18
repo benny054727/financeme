@@ -571,8 +571,8 @@ function vHome(){
      (loanPay>0?'<div class="mini" style="margin-bottom:16px">💡 "הוצאות" כולל '+fmt(loanPay)+' החזרי הלוואות ו-'+fmt(m.saving)+' הפקדה לחיסכון החודש</div>':'');
   if(A.length){
     h+='<div class="box"><div class="stitle"><span>🔔</span> התראות ותובנות<span class="sright">'+A.length+'</span></div>';
-    A.slice(0,4).forEach(a=>{h+='<div class="alert a-'+a.s+'"><div class="aic">'+a.i+'</div><div class="atx"><b>'+esc(a.t)+'</b>'+esc(a.d)+'</div></div>';});
-    if(A.length>4)h+='<div style="text-align:center;margin-top:12px"><button class="chip" onclick="showAllAlerts()">הצג את כל ה-'+A.length+'</button></div>';
+    h+='<div class="alertsWrap" onscroll="updAlertDots(this)">'+A.map(a=>'<div class="alertSlide"><div class="alert a-'+a.s+'"><div class="aic">'+a.i+'</div><div class="atx"><b>'+esc(a.t)+'</b>'+esc(a.d)+'</div></div></div>').join('')+'</div>';
+    if(A.length>1)h+='<div class="alertDots">'+A.map((_,i)=>'<span class="adot'+(i===0?' on':'')+'"></span>').join('')+'</div>';
     h+='</div>';
   }
   const target=DB.settings.monthlyExpenseTarget||0;
@@ -594,9 +594,17 @@ function vHome(){
   h+='</div>';
   return h;
 }
-function showAllAlerts(){
-  const A=alerts();
-  sheet('כל ההתראות',A.map(a=>'<div class="alert a-'+a.s+'"><div class="aic">'+a.i+'</div><div class="atx"><b>'+esc(a.t)+'</b>'+esc(a.d)+'</div></div>').join(''));
+function updAlertDots(wrap){
+  const slides=wrap.querySelectorAll('.alertSlide');
+  const dots=wrap.nextElementSibling;
+  if(!dots||!dots.classList.contains('alertDots'))return;
+  const wrapLeft=wrap.getBoundingClientRect().left;
+  let best=0,bestDist=Infinity;
+  slides.forEach((s,i)=>{
+    const d=Math.abs(s.getBoundingClientRect().left-wrapLeft);
+    if(d<bestDist){bestDist=d;best=i;}
+  });
+  dots.querySelectorAll('.adot').forEach((d,i)=>d.classList.toggle('on',i===best));
 }
 
 /* ---------- ACCOUNT ---------- */
