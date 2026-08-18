@@ -335,6 +335,9 @@ const CALC={
       if(x.direction==='in'){
         r.income+=x.amount;
         if(x.incomeType==='salary')r.incomeBase+=x.amount;else r.incomeExtra+=x.amount;
+        // byCat גם להכנסות (לא רק הוצאות) — כדי שטאב "הכנסות" בדף ההוצאות יוכל להציג
+        // פירוט לפי קטגוריה (עוגה) בדיוק כמו קבועות/משתנות, באותו קוד גנרי
+        r.byCat[x.categoryId]=(r.byCat[x.categoryId]||0)+x.amount;
         return;
       }
       if(c.kind==='saving'){r.saving+=x.amount;}
@@ -722,9 +725,10 @@ function vExpenses(){
   for(let i=5;i>=0;i--){const mm=addM(curYM(),-i);h+='<button class="mbtn '+(mm===y?'active':'')+'" onclick="selYM=\''+mm+'\';render()">'+ymShort(mm)+(i===0?'':'')+'</button>';}
   h+='</div>';
   h+='<div class="seg"><button class="'+(expTab==='fixed'?'on':'')+'" onclick="expTab=\'fixed\';render()">קבועות · '+fmt(m.fixed)+'</button>'+
-     '<button class="'+(expTab==='variable'?'on':'')+'" onclick="expTab=\'variable\';render()">משתנות · '+fmt(m.variable)+'</button></div>';
+     '<button class="'+(expTab==='variable'?'on':'')+'" onclick="expTab=\'variable\';render()">משתנות · '+fmt(m.variable)+'</button>'+
+     '<button class="'+(expTab==='income'?'on':'')+'" onclick="expTab=\'income\';render()">הכנסות · '+fmt(m.income)+'</button></div>';
   const prev=CALC.month(addM(y,-1));
-  const cur=expTab==='fixed'?m.fixed:m.variable,pv=expTab==='fixed'?prev.fixed:prev.variable;
+  const cur=m[expTab]||0,pv=prev[expTab]||0;
   if(pv>0){const dl=((cur/pv)-1)*100;
     h+='<div class="box" style="padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:center">'+
     '<span class="mini">לעומת '+ymLabel(addM(y,-1))+'</span>'+
@@ -739,28 +743,29 @@ function vExpenses(){
     const donutItems=rows.map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length],click:'catSummary(\''+r.c.id+'\')'}));
     h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי קטגוריה<span class="sright">'+fmt(cur)+'</span></div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
   }else{
-    h+='<div class="box"><div class="empty"><b>אין הוצאות בחודש זה</b>לחץ + כדי לרשום</div></div>';
+    h+='<div class="box"><div class="empty"><b>'+(expTab==='income'?'אין הכנסות בחודש זה':'אין הוצאות בחודש זה')+'</b>לחץ + כדי לרשום</div></div>';
   }
   // רשימת התנועות בפועל, לפי שם — כמו "תנועות אחרונות" בדף הבית, רק מסוננת לטאב ולחודש המוצגים
   const txsAll=DB.transactions.filter(x=>ym(x.date)===y&&CALC.cat(x.categoryId).kind===expTab).sort((a,b)=>b.date<a.date?-1:1);
   h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות<span class="sright">'+txsAll.length+'</span></div>';
   h+=txsAll.length?txsAll.map(txRow).join(''):'<div class="empty"><b>אין תנועות בחודש זה</b></div>';
   h+='</div>';
-  if(expTab==='fixed'){
-    // כדי לא לבלבל בין "הוצאה בפועל" (הקופסה למעלה) ל"כלל שיצר אותה" (כאן) — הקטגוריות
+  if(expTab==='fixed'||expTab==='income'){
+    const isInc=expTab==='income';
+    // כדי לא לבלבל בין "הוצאה/הכנסה בפועל" (הקופסה למעלה) ל"כלל שיצר אותה" (כאן) — הקטגוריות
     // הבודדות למעלה כבר מספרות את כל הסיפור הכספי, אז מקפלים את הרשימה הזו כברירת מחדל
     // ופותחים אותה רק לפי בקשה, למי שבאמת צריך לנהל/להשהות/למחוק כלל
-    const recs=DB.recurring.filter(r=>r.direction!=='in'); // הכנסות קבועות (משכורת) מנוהלות בנפרד, לא כאן
-    h+='<div class="box"><div class="stitle" style="cursor:pointer" onclick="recBoxOpen=!recBoxOpen;render()"><span>⚙️</span> ניהול הוראות קבע<span class="sright">'+(recBoxOpen?'הסתר ▲':'הצג ▼')+'</span></div>';
+    const recs=DB.recurring.filter(r=>isInc?r.direction==='in':r.direction!=='in');
+    h+='<div class="box"><div class="stitle" style="cursor:pointer" onclick="recBoxOpen=!recBoxOpen;render()"><span>⚙️</span> '+(isInc?'ניהול הכנסות קבועות':'ניהול הוראות קבע')+'<span class="sright">'+(recBoxOpen?'הסתר ▲':'הצג ▼')+'</span></div>';
     if(recBoxOpen){
-      if(!recs.length)h+='<div class="empty"><b>לא הוגדרו הוראות קבע</b>הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית</div>';
+      if(!recs.length)h+='<div class="empty"><b>'+(isInc?'לא הוגדרו הכנסות קבועות':'לא הוגדרו הוראות קבע')+'</b>'+(isInc?'משכורת ודומיה — המערכת תרשום אותן כל חודש אוטומטית. הכנסה שמשתנה כל חודש (כמו פרילנס) עדיף לרשום ידנית בכל פעם דרך "רישום תנועה".':'הגדר אותן פעם אחת והמערכת תרשום אותן כל חודש אוטומטית')+'</div>';
       recs.forEach(r=>{const c=CALC.cat(r.categoryId),cd=r.cardId?CALC.card(r.cardId):null;
         // שורה שלמה לחיצה שפותחת מודאל עריכה/מחיקה — אותו דפוס בדיוק כמו שורת קטגוריה למעלה
         const instTag=r.installmentTotal?' · תשלום '+Math.min(r.installmentTotal,Math.max(1,monthsBetweenYM(r.startDate,curYM())+1))+'/'+r.installmentTotal:'';
         h+='<div class="eitem tap" style="'+(r.active?'':'opacity:.5')+'" onclick="openRecurring(\''+r.id+'\')"><div class="eico">'+c.icon+'</div><div class="einfo"><div class="ename">'+esc(r.name)+(r.active?'':' · מושהה')+'</div>'+
-        '<div class="etag">ב-'+r.dayOfMonth+' לחודש · '+(cd?esc(cd.name):'מהעו"ש')+instTag+'</div></div>'+
-        '<div class="eside"><div class="eamt">'+fmt(r.amount)+'</div></div></div>';});
-      h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openRecurring()">+ הוסף הוראת קבע</button>';
+        '<div class="etag">ב-'+r.dayOfMonth+' לחודש'+(isInc?'':' · '+(cd?esc(cd.name):'מהעו"ש'))+instTag+'</div></div>'+
+        '<div class="eside"><div class="eamt'+(isInc?' in':'')+'">'+fmt(r.amount)+'</div></div></div>';});
+      h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openRecurring(null,null'+(isInc?",'in'":'')+')">+ הוסף '+(isInc?'הכנסה קבועה':'הוראת קבע')+'</button>';
     }
     h+='</div>';
   }
@@ -882,7 +887,7 @@ function catSummary(catId){
   const c=CALC.cat(catId),y=selYM||curYM(),m=CALC.month(y);
   const v=m.byCat[catId]||0,bud=c.budget||0,over=bud>0&&v>bud,p=bud>0?Math.min(100,(v/bud)*100):0;
   let h='<div style="text-align:center;padding:6px 0 18px"><div style="font-size:40px;margin-bottom:6px">'+c.icon+'</div>'+
-    '<div style="font-size:26px;font-weight:900">'+fmt(v)+'</div><div class="mini">הוצא החודש</div></div>';
+    '<div style="font-size:26px;font-weight:900">'+fmt(v)+'</div><div class="mini">'+(c.kind==='income'?'התקבל החודש':'הוצא החודש')+'</div></div>';
   if(bud>0){
     h+='<div class="barout"><div class="barin '+(over?'hi':p>85?'mid':'')+'" style="width:'+p+'%"></div></div>'+
        '<div class="barlbls"><span>₪0</span><span>'+fmt(bud)+'</span></div>'+
@@ -903,7 +908,7 @@ function sheet(title,body,onOpen,backFn){
   const ov=document.createElement('div');ov.className='ov';ov.id='ov';
   ov.innerHTML='<div class="sheet"><div class="grab"></div><div class="shead"><div class="shead-lead">'+
     (backFn?'<button class="backbtn" onclick="'+backFn+'()">‹ חזרה</button>':'')+
-    '<h3>'+esc(title)+'</h3></div><button class="xbtn" onclick="closeSheet()">✕</button></div>'+body+'</div>';
+    '<h3 id="sheetTitle">'+esc(title)+'</h3></div><button class="xbtn" onclick="closeSheet()">✕</button></div>'+body+'</div>';
   ov.addEventListener('click',e=>{if(e.target===ov)closeSheet();});
   document.body.appendChild(ov);
   if(onOpen)onOpen();
@@ -1283,35 +1288,66 @@ function doSync(){
 }
 
 /* ---- הוראת קבע ---- */
-function openRecurring(editId,presetCatId){
+// recDir: כיוון ההוראה שנפתחת כרגע ('out' = הוצאה קבועה/חיסכון, 'in' = הכנסה קבועה).
+// המתג בין השניים מוצג רק בהוספה חדשה — עריכת הוראה קיימת לא משנה את הכיוון שלה
+// (כמו כל שינוי אחר באפליקציה: עריכה משפיעה קדימה, לא הופכת את אופי הרשומה).
+let recDir='out';
+function recCatOptions(selCat){
+  const cats=DB.categories.filter(c=>recDir==='in'?c.kind==='income':(c.kind==='fixed'||c.kind==='saving'));
+  return cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('');
+}
+function recMethodDayHTML(r){
+  if(recDir==='in')return '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div>';
+  return '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(r&&r.method==='account'?'selected':'')+'>מהעו"ש</option>'+
+    DB.cards.map(c=>'<option value="'+c.id+'" '+(r&&r.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
+    '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>';
+}
+function recAmtSectionHTML(r,isInst){
+  if(recDir==='in')return '<div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r?r.amount:'')+'"/></div>';
+  return '<div class="fld"><label>סוג הוראה</label><div class="seg"><button id="rTypeReg" class="'+(isInst?'':'on')+'" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" class="'+(isInst?'on':'')+'" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
+   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:'')+'"/></div></div>'+
+   '<div id="rInstWrap" style="display:'+(isInst?'':'none')+'"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0" value="'+(isInst?Math.round(r.amount*r.installmentTotal*100)/100:'')+'"/></div>'+
+     '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="'+(isInst?r.installmentTotal:12)+'"/></div></div>'+
+     '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div>'+
+     (isInst?'<div class="mini">כבר בוצעו '+monthsBetweenYM(r.startDate,curYM())+' מתוך '+r.installmentTotal+' תשלומים</div>':'')+'</div>';
+}
+function openRecurring(editId,presetCatId,presetDir){
   const r=editId?DB.recurring.find(x=>x.id===editId):null;
-  const cats=DB.categories.filter(c=>c.kind==='fixed'||c.kind==='saving');
+  recDir=r?r.direction:(presetDir||'out');
   const isInst=r?!!r.installmentTotal:false;
   const selCat=r?r.categoryId:presetCatId;
   // אם התנועה של החודש הנוכחי נמחקה ידנית בעבר (skipRec) — ההוראה עדיין פעילה
   // אבל החודש הזה נשאר "ריק" בכוונה. זו הכניסה הזמינה תמיד לשחזור, גם כשלקטגוריה
   // עצמה אין שום תנועה החודש ואי אפשר להגיע אליה דרך שורת קטגוריה.
   const skippedThisMonth=r&&DB.meta.skipRec.includes('rec_'+r.id+'_'+curYM())&&!DB.transactions.some(t=>t.id==='rec_'+r.id+'_'+curYM());
-  sheet(r?'עריכת הוראת קבע':'הוראת קבע חדשה',
+  sheet(r?(recDir==='in'?'עריכת הכנסה קבועה':'עריכת הוראת קבע'):(recDir==='in'?'הכנסה קבועה חדשה':'הוראת קבע חדשה'),
    (skippedThisMonth?'<div class="note" style="margin-bottom:15px">⚠️ התנועה של החודש הזה נמחקה בעבר ולא תיווצר מחדש לבד.<br/><button class="lnk" onclick="restoreSkippedRec(\''+r.id+'\')" style="color:var(--expense)">שחזר את התנועה</button></div>':'')+
-   '<div class="fld"><label>שם</label><input id="rName" type="text" placeholder="ביטוח רכב" value="'+(r?esc(r.name):'')+'"/></div>'+
-   '<div class="fld"><label>קטגוריה</label><select id="rCat">'+cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('')+'</select></div>'+
-   (DB.goals.length?'<div class="fld"><label>קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
+   (r?'':'<div class="seg"><button id="rDirOut" class="'+(recDir==='out'?'on':'')+'" onclick="setRecDir(\'out\')">הוצאה קבועה</button><button id="rDirIn" class="'+(recDir==='in'?'on':'')+'" onclick="setRecDir(\'in\')">הכנסה קבועה</button></div>')+
+   '<div class="fld"><label>שם</label><input id="rName" type="text" placeholder="'+(recDir==='in'?'הכנסה נוספת':'ביטוח רכב')+'" value="'+(r?esc(r.name):'')+'"/></div>'+
+   '<div class="fld"><label>קטגוריה</label><select id="rCat">'+recCatOptions(selCat)+'</select></div>'+
+   '<div class="fld" id="rIncTypeWrap" style="display:'+(recDir==='in'?'':'none')+'"><label>סוג הכנסה</label><select id="rIncType">'+
+     [['salary','משכורת'],['reserve','מענק מילואים'],['other','אחר']].map(function(p){return '<option value="'+p[0]+'" '+((r?r.incomeType===p[0]:p[0]==='salary')?'selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></div>'+
+   (DB.goals.length?'<div class="fld" id="rGoalWrap" style="display:'+(recDir==='in'?'none':'')+'"><label>קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
      DB.goals.map(g=>'<option value="'+g.id+'" '+(r&&r.goalId===g.id?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>'+
      '<div class="hint">אם ההוראה היא הפקדה לחיסכון — קשר אותה ליעד כדי שהוא יתעדכן אוטומטית בכל חיוב</div></div>':'')+
-   '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(r&&r.method==='account'?'selected':'')+'>מהעו"ש</option>'+
-     DB.cards.map(c=>'<option value="'+c.id+'" '+(r&&r.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>'+
-   '<div class="fld"><label>סוג הוראה</label><div class="seg"><button id="rTypeReg" class="'+(isInst?'':'on')+'" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" class="'+(isInst?'on':'')+'" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
-   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:'')+'"/></div></div>'+
-   '<div id="rInstWrap" style="display:'+(isInst?'':'none')+'"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0" value="'+(isInst?Math.round(r.amount*r.installmentTotal*100)/100:'')+'"/></div>'+
-     '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="'+(isInst?r.installmentTotal:12)+'"/></div></div>'+
-     '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div>'+
-     (isInst?'<div class="mini">כבר בוצעו '+monthsBetweenYM(r.startDate,curYM())+' מתוך '+r.installmentTotal+' תשלומים</div>':'')+'</div>'+
+   '<div id="rMethodDaySection">'+recMethodDayHTML(r)+'</div>'+
+   '<div id="rAmtSection">'+recAmtSectionHTML(r,isInst)+'</div>'+
    '<button class="btn" style="margin-top:8px" onclick="saveRec('+(r?"'"+r.id+"'":'null')+')">שמור</button>'+
    (r?'<button class="btn sec" style="margin-top:10px" onclick="toggleRec(\''+r.id+'\')">'+(r.active?'השהה הוראה':'הפעל מחדש')+'</button>':'')+
-   (r?'<button class="btn dgr" style="margin-top:10px" onclick="delRec(\''+r.id+'\')">מחק הוראת קבע</button>':''),
+   (r?'<button class="btn dgr" style="margin-top:10px" onclick="delRec(\''+r.id+'\')">מחק</button>':''),
    ()=>{updateInstPreview();['rTotal','rCount'].forEach(id=>{const e=el(id);if(e)e.addEventListener('input',updateInstPreview);});});
+}
+function setRecDir(dir){
+  recDir=dir;
+  el('sheetTitle').textContent=dir==='in'?'הכנסה קבועה חדשה':'הוראת קבע חדשה';
+  el('rDirOut').classList.toggle('on',dir==='out');
+  el('rDirIn').classList.toggle('on',dir==='in');
+  el('rName').placeholder=dir==='in'?'הכנסה נוספת':'ביטוח רכב';
+  el('rCat').innerHTML=recCatOptions(null);
+  el('rIncTypeWrap').style.display=dir==='in'?'':'none';
+  if(el('rGoalWrap'))el('rGoalWrap').style.display=dir==='in'?'none':'';
+  el('rMethodDaySection').innerHTML=recMethodDayHTML(null);
+  el('rAmtSection').innerHTML=recAmtSectionHTML(null,false);
 }
 function setRecType(isInst){
   el('rTypeReg').classList.toggle('on',!isInst);el('rTypeInst').classList.toggle('on',isInst);
@@ -1326,8 +1362,9 @@ function updateInstPreview(){
 function saveRec(editId){
   const n=el('rName').value.trim(),d=+el('rDay').value;
   if(!n)return toast('הזן שם');
-  const mv=el('rMethod').value,isCard=mv!=='account';
-  const isInst=el('rTypeInst').classList.contains('on');
+  const isOut=recDir==='out';
+  const mv=isOut?el('rMethod').value:'account',isCard=isOut&&mv!=='account';
+  const isInst=isOut&&el('rTypeInst')&&el('rTypeInst').classList.contains('on');
   const existing=editId?DB.recurring.find(x=>x.id===editId):null;
   const start=existing?existing.startDate:(curYM()+'-01');
   let amount,installmentTotal=null,endDate=null;
@@ -1341,21 +1378,24 @@ function saveRec(editId){
     amount=parseFloat(el('rAmt').value);
     if(!amount||amount<=0)return toast('הזן סכום');
   }
-  const goalId=(el('rGoal')&&el('rGoal').value)||null;
+  const goalId=isOut&&el('rGoal')?(el('rGoal').value||null):null;
+  const incomeType=isOut?null:(el('rIncType').value||'salary');
   if(existing){
     // עריכה משפיעה קדימה בלבד — תנועות שכבר נוצרו בעבר לא משתנות רטרואקטיבית
     existing.name=n;existing.amount=amount;existing.dayOfMonth=d;existing.categoryId=el('rCat').value;
     existing.method=isCard?'card':'account';existing.cardId=isCard?mv:null;
     existing.installmentTotal=installmentTotal;existing.endDate=endDate;existing.goalId=goalId;
+    if(!isOut)existing.incomeType=incomeType;
     save();genRecurring();closeSheet();render();toast('עודכן');
     return;
   }
   DB.recurring.push({id:uid('rec'),name:n,amount:amount,categoryId:el('rCat').value,
+    direction:recDir,incomeType:incomeType,
     method:isCard?'card':'account',cardId:isCard?mv:null,dayOfMonth:d,
     // תחילת החודש הנוכחי, לא "היום" — אחרת מופע החודש הזה נבלע אם יום החיוב כבר עבר
     // (למשל מוסיפים הוראת קבע ל-5 לחודש כשהיום כבר ה-15, וה"היום" כ-startDate היה מדלג עליו)
-    startDate:start,endDate:endDate,active:true,direction:'out',installmentTotal:installmentTotal,goalId:goalId});
-  save();genRecurring();closeSheet();render();toast(isInst?'נוספה תוכנית תשלומים':'נוספה הוראת קבע');
+    startDate:start,endDate:endDate,active:true,installmentTotal:installmentTotal,goalId:goalId});
+  save();genRecurring();closeSheet();render();toast(isInst?'נוספה תוכנית תשלומים':(isOut?'נוספה הוראת קבע':'נוספה הכנסה קבועה'));
 }
 function toggleRec(id){
   const r=DB.recurring.find(x=>x.id===id);if(!r)return;
