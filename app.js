@@ -233,6 +233,12 @@ function migrate(){
       g.createdDate=linked.length?linked[0].date:iso(today());
     }
   });
+  // תיקון רטרואקטיבי: לפני התיקון ל-delGoal(), מחיקת יעד/קרן לא ניקתה הפקדות שכבר
+  // נרשמו החודש הנוכחי עבור אותו יעד — הן נשארו תנועה יתומה שממשיכה להיספר כחיסכון
+  // (עוגה/תנועות/דף הבית) למרות שהיעד כבר לא קיים. מנקים כאן פעם אחת, באותו עיקרון
+  // בדיוק כמו delGoal(): רק תנועות החודש הנוכחי, היסטוריה מחודשים קודמים נשארת.
+  const curM=curYM();
+  DB.transactions=DB.transactions.filter(t=>!(t.goalId&&ym(t.date)===curM&&!DB.goals.some(g=>g.id===t.goalId)));
 }
 function save(){
   // חותמת זמן מקומית — כדי שבטעינה הבאה (למשל רענון דף מיד אחרי שמירה, לפני שההשהיה
@@ -885,8 +891,15 @@ function goalGrowthChart(g){
    '</svg><div class="mini" style="display:flex;justify-content:space-between;margin-top:3px"><span>'+dLabel(pts[0].date)+'</span><span>'+dLabel(pts[pts.length-1].date)+'</span></div></div>';
 }
 function delGoal(id){
-  if(!confirm('למחוק את היעד?'))return;
-  DB.goals=DB.goals.filter(g=>g.id!==id);
+  const g=DB.goals.find(x=>x.id===id);if(!g)return;
+  // הפקדות שכבר נרשמו החודש הנוכחי עבור היעד הזה — בלי לטפל בהן הן נשארות תנועה
+  // יתומה שממשיכה להיספר כחיסכון/הוצאה בכל מקום (עוגה/תנועות/דף הבית) למרות שהיעד
+  // כבר נמחק. באותו עיקרון בדיוק כמו delRec(): תנועות החודש הנוכחי נמחקות יחד עם
+  // היעד, תנועות מחודשים קודמים נשארות בהיסטוריה ("עריכה משפיעה קדימה בלבד").
+  const curTx=DB.transactions.filter(x=>x.goalId===id&&ym(x.date)===curYM());
+  if(!confirm(curTx.length?'למחוק את היעד "'+g.name+'"? '+curTx.length+' הפקדות שנרשמו החודש הזה יימחקו גם הן. תנועות מחודשים קודמים יישארו.':'למחוק את היעד?'))return;
+  DB.goals=DB.goals.filter(x=>x.id!==id);
+  if(curTx.length){const ids=curTx.map(t=>t.id);DB.transactions=DB.transactions.filter(x=>!ids.includes(x.id));}
   // הוראת קבע שהייתה מקושרת ליעד הזה ממשיכה לרוץ כרגיל (עדיין הפקדה לחיסכון אמיתית) —
   // רק מנתקים את הקישור, כדי לא להשאיר הפניה ליעד שכבר לא קיים
   DB.recurring.forEach(r=>{if(r.goalId===id)r.goalId=null;});
