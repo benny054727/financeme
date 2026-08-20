@@ -45,10 +45,12 @@
   </div>
   <div class="htitle"><h1 id="ptitle"></h1><p id="psub"></p></div>
 </header>
-<main id="view"></main>
-</div>
-
+<!-- ה-nav יושב כאן, בין header ל-main, כדי שבמסך רחב יוכל לזרום בתור פס אופקי
+     צף מתחת להדר (position:relative) — במובייל position:fixed מוציא אותו מהזרימה
+     בכל מקרה, כך שהמיקום כאן לא משפיע על התצוגה הקיימת שם. ה-fab מקונן כילד ראשון
+     בתוך ה-nav מאותה סיבה בדיוק: במסך רחב הוא הופך לפריט רגיל בתוך שורת הניווט. -->
 <nav id="nav" class="hide">
+  <button id="fab" class="fab hide" onclick="openEntry()">+</button>
   <button data-p="home" class="on"><span class="ni">🏠</span>בית</button>
   <button data-p="account"><span class="ni">🏦</span>עו"ש</button>
   <button class="spacer"><span class="ni">•</span>-</button>
@@ -56,7 +58,8 @@
   <button data-p="expenses"><span class="ni">📋</span>הוצאות</button>
   <button data-p="savings"><span class="ni">🎯</span>חיסכון</button>
 </nav>
-<button id="fab" class="fab hide" onclick="openEntry()">+</button>
+<main id="view"></main>
+</div>
 
 <!-- Supabase JS SDK — חייב להיטען לפני app.js -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
