@@ -244,10 +244,27 @@ nav .spacer{pointer-events:none;visibility:hidden}
   .hinner,.htitle,main{max-width:none}
   main{column-count:2;column-gap:24px;margin-top:32px}
   .hero,.kpiwrap,.box{break-inside:avoid;margin-bottom:20px}
-  /* סמלי ההגדרות/סנכרון: לא חלק מהזרימה הרגילה של .hinner (שנשארת מוצמדת
-     לימין ליד הסיידבר) — ממוקמים בנפרד בפינה הנגדית, בקצה השמאלי הממשי
-     של המסך, בדיוק כמו שביקשת */
-  .hbtns{position:absolute;top:18px;left:0;z-index:2}
+  /* #app מקבל position:relative כדי שה-nav (position:absolute) יתמקם ביחס
+     אליו — ממש בתחילת הדף, לא ביחס לכל ה-viewport */
+  #app{position:relative}
+  /* מרווח נוסף למעלה בהדר: מפנה מקום לפס הניווט המלא-רוחב שיושב עכשיו
+     מעליו כשורה נפרדת (position:absolute), כדי שהלוגו וכותרת העמוד לא
+     ייחתכו מתחת לפס */
+  header{padding-top:calc(64px + env(safe-area-inset-top,0px))}
+  /* סמלי ההגדרות/סנכרון: מוצגים ויזואלית בתוך פס הניווט (הרצועה הלבנה),
+     בקצה השמאלי הממשי של המסך — ה-DOM נשאר בתוך header כמו קודם, רק
+     ה-z-index (גבוה מזה של nav) גורם להם להצטייר מעל הרקע הלבן שלו.
+     גם צבע הרקע שלהם משתנה: הסגנון המקורי (זכוכית לבנה שקופה על כחול)
+     היה נעלם כמעט לגמרי על רקע לבן, אז כאן הם מקבלים רקע/מסגרת בהירים
+     שנראים נכון על .surface לבן.
+     top/left שליליים ומחושבים: .hbtns יושב בתוך .hinner, שכבר יש לה
+     position:relative משלה (לצורך ה-stacking מול הבלובים המעוצבים בהדר) —
+     כלומר .hbtns ממוקם ביחס ל-.hinner, לא ביחס ל-header. .hinner מתחילה
+     בדיוק במרווח ה-padding-top/left של header (כאן 64px+safe / 20px),
+     אז כדי שהאייקונים ינחתו במיקום מוחלט הרצוי בעמוד (סביב 10px מלמעלה,
+     16px מהקצה השמאלי — בתוך הרצועה של nav) מחסרים את ה-offset הזה. */
+  .hbtns{position:absolute;top:calc(-54px - env(safe-area-inset-top,0px));left:-4px;z-index:2;gap:8px}
+  #syncBadge,.hbtn{background:var(--bg);border:1px solid var(--border)}
   /* גופנים מעט גדולים יותר בכרטיסים — הכרטיסים עצמם רחבים יותר עכשיו,
      והתוכן צריך להתאים לגודל החדש במקום להיראות קטן/אבוד באמצע כרטיס גדול */
   .stitle{font-size:16.5px}
@@ -265,20 +282,17 @@ nav .spacer{pointer-events:none;visibility:hidden}
      כמו כותרת עמוד רגילה, מעל שתי העמודות, ואז שתי העמודות מתחילות באותו
      גובה בדיוק עם הכרטיס הממשי הראשון שלהן. */
   .hgreet,.mbar,.seg,.ccgrid{column-span:all}
-  /* פס ניווט אופקי צף על הגבול בין ההדר הכחול לתוכן — אותה שפה עיצובית בדיוק
-     כמו .hero (כרטיס לבן שצף על ההדר עם margin-top שלילי); ה-nav עבר במסמך
-     ה-HTML להיות בין header ל-main בדיוק כדי לאפשר לו לזרום כאן באופן טבעי
-     (position:relative) במקום המוט האנכי הקבוע (position:fixed) שהיה במובייל.
-     ה-margin-top השלילי נבחר אמפירית מול הגובה בפועל של ההדר בדסקטופ (כותרת
-     עמוד חד-שורתית בכל הדפים — ראו titles ב-render() — כך שההדר תמיד באותו
-     גובה בערך, וההצפה הזו לא "קופצת" בין דפים). */
-  /* width:fit-content (לא רוחב מלא) — כדי שהפילה תיצמד לקצה הימני של התוכן
-     (RTL) ולא תשאיר רצועת רקע לבן ריקה וגדולה משמאלה במסכים רחבים מאוד */
-  nav{position:relative;top:auto;bottom:auto;right:auto;left:auto;width:fit-content;
+  /* פס ניווט אופקי מלא-רוחב, יושב כשורה העליונה ביותר על רקע ההדר הכחול
+     (position:absolute;top:0;left:0;right:0 — לא כרטיס צף שחופף לגבול עם
+     התוכן כמו בגרסה הקודמת). z-index נמוך מזה של .hbtns כדי שסמלי
+     ההגדרות/סנכרון יצטיירו מעליו בקצה השמאלי. פריטי הניווט מתקבצים מהצד
+     הימני (RTL, justify-content:flex-start) ומשאירים את הצד השמאלי פנוי
+     בשביל האייקונים. */
+  nav{position:absolute;top:0;left:0;right:0;bottom:auto;width:auto;
     display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
-    background:var(--surface);backdrop-filter:none;border-radius:18px;
-    box-shadow:var(--shadow-lg);margin:-42px 14px 0 0;padding:8px 10px;gap:4px;
-    border-top:none;z-index:2}
+    background:var(--surface);backdrop-filter:none;border-radius:0;
+    box-shadow:0 2px 14px rgba(15,23,42,.14);margin:0;padding:9px 16px;gap:4px;
+    border-top:none;z-index:1}
   nav .spacer{display:none}
   nav button{flex:none;flex-direction:row;padding:9px 14px;border-radius:11px;gap:7px;font-size:13px;font-weight:600}
   nav button .ni{font-size:17px}
