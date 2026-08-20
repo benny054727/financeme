@@ -239,14 +239,25 @@ nav .spacer{pointer-events:none;visibility:hidden}
    בודד לא נחתך באמצע בין העמודות. */
 @media (min-width:900px){
   body{padding-bottom:0;padding-right:84px}
-  /* margin-inline:0 auto ולא margin:0 auto — מצמיד לצד ההתחלתי (ב-RTL: ימין,
-     ליד הסיידבר) במקום למרכז באמצע כל הרוחב הפנוי. מרכוז הוא מה שיצר את
-     "השטח המת" משני הצדדים ואת הלוגו/הכותרת שצפים באמצע המסך בלי קשר
-     לסיידבר. main/.hinner/.htitle חייבים את אותו max-width+הצמדה כדי
-     שהכל — כותרת כחולה ותוכן לבן מתחתיה — יישר לאותה רצועה אחת. */
-  .hinner,.htitle{max-width:1400px;margin-inline:0 auto}
-  main{max-width:1400px;margin-inline:0 auto;column-count:2;column-gap:16px}
-  .hero,.kpiwrap,.box{break-inside:avoid}
+  /* מרחיבים לרוחב מלא (בלי max-width) במקום קופסה צרה יותר — הכרטיסים
+     ממלאים את כל השטח הפנוי ליד הסיידבר, בלי "שטח מת" בצד שמאל. */
+  .hinner,.htitle,main{max-width:none}
+  main{column-count:2;column-gap:24px;margin-top:32px}
+  .hero,.kpiwrap,.box{break-inside:avoid;margin-bottom:20px}
+  /* סמלי ההגדרות/סנכרון: לא חלק מהזרימה הרגילה של .hinner (שנשארת מוצמדת
+     לימין ליד הסיידבר) — ממוקמים בנפרד בפינה הנגדית, בקצה השמאלי הממשי
+     של המסך, בדיוק כמו שביקשת */
+  .hbtns{position:absolute;top:18px;left:0;z-index:2}
+  /* גופנים מעט גדולים יותר בכרטיסים — הכרטיסים עצמם רחבים יותר עכשיו,
+     והתוכן צריך להתאים לגודל החדש במקום להיראות קטן/אבוד באמצע כרטיס גדול */
+  .stitle{font-size:16.5px}
+  .mini{font-size:13px}
+  .hamt{font-size:41px}
+  .ename{font-size:15px}
+  .eamt{font-size:16px}
+  .kamt{font-size:19px}
+  .etag{font-size:12px}
+  .klbl{font-size:11px}
   /* אלה "כותרות עמוד" (ברכה בדף הבית, טאבים/בורר-חודש בדף הוצאות) בלי מסגרת
      כרטיס משלהן — בלי column-span:all הן "נבלעות" כפריט הראשון בעמודה אחת
      בלבד, מה שדוחף את הכרטיס האמיתי הראשון שם נמוך יותר מהעמודה השנייה
