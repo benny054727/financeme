@@ -71,11 +71,36 @@ function vHome(){
   if(split.length){
     h+='<div class="box"><div class="stitle"><span>🍩</span> חלוקת החודש</div><div class="dwrap">'+donut(split,split.reduce((s,x)=>s+x.v,0))+'</div></div>';
   }
+  h+=expenseTrendChart();
   const recent=DB.transactions.filter(x=>x.date<=iso(today())).sort((a,b)=>b.date<a.date?-1:1).slice(0,6);
   h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות אחרונות</div>';
   h+=recent.length?recent.map(txRow).join(''):'<div class="empty"><b>עדיין אין תנועות</b>לחץ על + כדי לרשום את הראשונה</div>';
   h+='</div>';
   return h;
+}
+/* גרף מגמת הוצאות ל-6 חודשים אחרונים (פריט מהביקורת המקצועית — היה בורר "6
+   חודשים אחרונים" בדף ההוצאות, אבל בלי שום גרף שבאמת משווה ביניהם). בנוי מ-
+   CALC.month(y).out בדיוק — אותו "הוצאות" (קבועות+משתנות, בלי הלוואות/חיסכון)
+   שמוצג בכל מקום אחר באפליקציה, לא מספר חדש עם הגדרה משלו. עמודת החודש הנוכחי
+   (עדיין לא נגמר) מסומנת אחרת — מקווקוה ובצבע בהיר יותר — כדי לא להטעות
+   בהשוואה מול חודשים שלמים. */
+function expenseTrendChart(){
+  const months=[];for(let i=5;i>=0;i--)months.push(addM(curYM(),-i));
+  const vals=months.map(y=>CALC.month(y).out);
+  const mx=Math.max(...vals,1);
+  const W=320,H=118,barW=32,gap=(W-barW*6)/7,baseY=88,maxH=60;
+  let bars='';
+  months.forEach((y,i)=>{
+    const v=vals[i],hgt=mx?Math.round((v/mx)*maxH):0,x=gap+(barW+gap)*i,barY=baseY-hgt;
+    const isCur=y===curYM();
+    bars+='<rect x="'+x+'" y="'+barY+'" width="'+barW+'" height="'+hgt+'" rx="4" '+
+      (isCur?'fill="#fee2e2" stroke="#e5383b" stroke-width="1.5" stroke-dasharray="3 2"':'fill="#e5383b"')+'/>'+
+      (v>0?'<text x="'+(x+barW/2)+'" y="'+(barY-6)+'" text-anchor="middle" font-size="9" fill="#64748b" font-family="Heebo">'+fmt(v)+'</text>':'')+
+      '<text x="'+(x+barW/2)+'" y="'+(baseY+15)+'" text-anchor="middle" font-size="9" fill="#64748b" font-family="Heebo">'+esc(ymShort(y))+'</text>'+
+      (isCur?'<text x="'+(x+barW/2)+'" y="'+(baseY+27)+'" text-anchor="middle" font-size="8" fill="#94a3b8" font-family="Heebo">עד כה</text>':'');
+  });
+  return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות — 6 חודשים אחרונים</div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';
 }
 function updAlertDots(wrap){
   const slides=wrap.querySelectorAll('.alertSlide');
