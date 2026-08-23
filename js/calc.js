@@ -73,7 +73,12 @@ const CALC={
         r.byCat[x.categoryId]=(r.byCat[x.categoryId]||0)+x.amount;
         return;
       }
-      if(c.kind==='saving'){r.saving+=x.amount;}
+      if(c.kind==='saving'){
+        r.saving+=x.amount;
+        // byCat גם לחיסכון — כדי שטאב "חיסכון" בדף ההוצאות יוכל להציג פירוט לפי
+        // קטגוריה (עוגה), באותו קוד גנרי בדיוק כמו קבועות/משתנות/הכנסות
+        r.byCat[x.categoryId]=(r.byCat[x.categoryId]||0)+x.amount;
+      }
       else{
         r.out+=x.amount;
         if(c.kind==='fixed')r.fixed+=x.amount;else r.variable+=x.amount;

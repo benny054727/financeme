@@ -86,28 +86,41 @@ function vHome(){
   h+='</div>';
   return h;
 }
-/* גרף מגמת הוצאות ל-6 חודשים אחרונים (פריט מהביקורת המקצועית — היה בורר "6
-   חודשים אחרונים" בדף ההוצאות, אבל בלי שום גרף שבאמת משווה ביניהם). בנוי מ-
-   CALC.month(y).out בדיוק — אותו "הוצאות" (קבועות+משתנות, בלי הלוואות/חיסכון)
-   שמוצג בכל מקום אחר באפליקציה, לא מספר חדש עם הגדרה משלו. עמודת החודש הנוכחי
-   (עדיין לא נגמר) מסומנת אחרת — מקווקוה ובצבע בהיר יותר — כדי לא להטעות
-   בהשוואה מול חודשים שלמים. */
+/* גרף מגמת הוצאות וחיסכון ל-6 חודשים אחרונים (פריט מהביקורת המקצועית — היה
+   בורר "6 חודשים אחרונים" בדף ההוצאות, אבל בלי שום גרף שבאמת משווה ביניהם).
+   שתי עמודות לכל חודש — הוצאות (CALC.month(y).out, קבועות+משתנות) וחיסכון
+   (CALC.month(y).saving) — בכוונה זו לצד זו ולא מוערמות זו על זו: החיסכון הוא
+   לא "עוד סוג הוצאה" (ראו catSummary/vExpenses — הוא נשאר קטגוריה נפרדת בכל
+   מקום באפליקציה), רק רוצים להשוות את שתי המגמות באותו גרף. עמודות החודש
+   הנוכחי (עדיין לא נגמר) מסומנות אחרת — מקווקוות ובצבע בהיר יותר — כדי לא
+   להטעות בהשוואה מול חודשים שלמים. */
 function expenseTrendChart(){
   const months=[];for(let i=5;i>=0;i--)months.push(addM(curYM(),-i));
-  const vals=months.map(y=>CALC.month(y).out);
-  const mx=Math.max(...vals,1);
-  const W=320,H=118,barW=32,gap=(W-barW*6)/7,baseY=88,maxH=60;
-  let bars='';
+  const expVals=months.map(y=>CALC.month(y).out);
+  const savVals=months.map(y=>CALC.month(y).saving);
+  const mx=Math.max(...expVals,...savVals,1);
+  const W=320,H=132,maxH=60,baseY=88;
+  const slotW=W/6,barW=14,barGap=3,groupW=barW*2+barGap,groupOff=(slotW-groupW)/2;
+  let bars='<g font-family="Heebo">';
   months.forEach((y,i)=>{
-    const v=vals[i],hgt=mx?Math.round((v/mx)*maxH):0,x=gap+(barW+gap)*i,barY=baseY-hgt;
     const isCur=y===curYM();
-    bars+='<rect x="'+x+'" y="'+barY+'" width="'+barW+'" height="'+hgt+'" rx="4" '+
+    const gx=slotW*i+groupOff;
+    const ev=expVals[i],eh=mx?Math.round((ev/mx)*maxH):0,ey=baseY-eh;
+    const sv=savVals[i],sh=mx?Math.round((sv/mx)*maxH):0,sy=baseY-sh;
+    bars+='<rect x="'+gx+'" y="'+ey+'" width="'+barW+'" height="'+eh+'" rx="3" '+
       (isCur?'fill="#fee2e2" stroke="#e5383b" stroke-width="1.5" stroke-dasharray="3 2"':'fill="#e5383b"')+'/>'+
-      (v>0?'<text x="'+(x+barW/2)+'" y="'+(barY-6)+'" text-anchor="middle" font-size="9" fill="#64748b" font-family="Heebo">'+fmt(v)+'</text>':'')+
-      '<text x="'+(x+barW/2)+'" y="'+(baseY+15)+'" text-anchor="middle" font-size="9" fill="#64748b" font-family="Heebo">'+esc(ymShort(y))+'</text>'+
-      (isCur?'<text x="'+(x+barW/2)+'" y="'+(baseY+27)+'" text-anchor="middle" font-size="8" fill="#94a3b8" font-family="Heebo">עד כה</text>':'');
+      '<rect x="'+(gx+barW+barGap)+'" y="'+sy+'" width="'+barW+'" height="'+sh+'" rx="3" '+
+      (isCur?'fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3 2"':'fill="#7c3aed"')+'/>'+
+      (ev>0?'<text x="'+(gx+barW/2)+'" y="'+(ey-5)+'" text-anchor="middle" font-size="8" fill="#64748b">'+fmt(ev)+'</text>':'')+
+      (sv>0?'<text x="'+(gx+barW+barGap+barW/2)+'" y="'+(sy-5)+'" text-anchor="middle" font-size="8" fill="#64748b">'+fmt(sv)+'</text>':'')+
+      '<text x="'+(gx+groupW/2)+'" y="'+(baseY+15)+'" text-anchor="middle" font-size="9" fill="#64748b">'+esc(ymShort(y))+'</text>'+
+      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+27)+'" text-anchor="middle" font-size="8" fill="#94a3b8">עד כה</text>':'');
   });
-  return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות — 6 חודשים אחרונים</div>'+
+  bars+='</g>';
+  const legend='<span class="mini" style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#e5383b;display:inline-block"></span>הוצאות</span>'+
+    '<span class="mini" style="display:inline-flex;align-items:center;gap:5px;margin-inline-start:14px"><span style="width:9px;height:9px;border-radius:3px;background:#7c3aed;display:inline-block"></span>חיסכון</span>';
+  return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות וחיסכון — 6 חודשים אחרונים</div>'+
+    '<div style="margin-bottom:8px">'+legend+'</div>'+
     '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';
 }
 function updAlertDots(wrap){
