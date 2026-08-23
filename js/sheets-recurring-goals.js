@@ -190,7 +190,8 @@ function openGoal(type){
    '<div class="row2"><div class="fld"><label for="gTgt">'+(type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="gTgt" type="number" inputmode="decimal" placeholder="0"/></div>'+
    '<div class="fld"><label for="gPlan">הפרשה חודשית</label><input id="gPlan" type="number" inputmode="decimal" placeholder="0"/></div></div>'+
    (type==='personal'?'<div class="fld"><label for="gDate">תאריך יעד</label><input id="gDate" type="date"/></div>':'')+
-   '<div class="fld"><label for="gSaved">כבר נצבר</label><input id="gSaved" type="number" inputmode="decimal" value="0"/></div>'+
+   '<div class="row2"><div class="fld"><label for="gSaved">כבר נצבר</label><input id="gSaved" type="number" inputmode="decimal" value="0"/></div>'+
+   '<div class="fld"><label for="gSavedDate">תאריך ההפקדה הראשונית</label><input id="gSavedDate" type="date" value="'+iso(today())+'"/></div></div>'+
    '<button class="btn" onclick="saveGoal(\''+type+'\')">שמור</button>');
 }
 function saveGoal(type){
@@ -201,9 +202,33 @@ function saveGoal(type){
     targetDate:type==='personal'&&el('gDate').value?el('gDate').value:null,
     saved:parseFloat(el('gSaved').value)||0,
     monthlyPlan:parseFloat(el('gPlan').value)||0,
-    createdDate:iso(today()),
+    createdDate:el('gSavedDate').value||iso(today()),
     priority:DB.goals.length+1,color:colors[DB.goals.length%colors.length]});
   save();closeSheet();render();toast('היעד נוסף');
+}
+/* עריכת יעד קיים — שם/יעד/הפרשה חודשית/תאריך יעד/סה"כ נצבר/תאריך ההפקדה
+   הראשונית (createdDate — נקודת העיגון של גרף הצמיחה, ראו goalGrowthChart) */
+function openGoalEdit(id){
+  const g=DB.goals.find(x=>x.id===id);if(!g)return;
+  sheet('עריכת '+(g.type==='fund'?'קרן':'יעד'),
+   '<div class="fld"><label for="geName">שם</label><input id="geName" type="text" value="'+esc(g.name)+'"/></div>'+
+   '<div class="row2"><div class="fld"><label for="geTgt">'+(g.type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="geTgt" type="number" inputmode="decimal" value="'+(g.targetAmount||'')+'"/></div>'+
+   '<div class="fld"><label for="gePlan">הפרשה חודשית</label><input id="gePlan" type="number" inputmode="decimal" value="'+(g.monthlyPlan||'')+'"/></div></div>'+
+   (g.type==='personal'?'<div class="fld"><label for="geDate">תאריך יעד</label><input id="geDate" type="date" value="'+(g.targetDate||'')+'"/></div>':'')+
+   '<div class="row2"><div class="fld"><label for="geSaved">סה"כ נצבר כרגע</label><input id="geSaved" type="number" inputmode="decimal" value="'+g.saved+'"/></div>'+
+   '<div class="fld"><label for="geSavedDate">תאריך ההפקדה הראשונית</label><input id="geSavedDate" type="date" value="'+(g.createdDate||iso(today()))+'"/></div></div>'+
+   '<button class="btn" onclick="saveGoalEdit(\''+id+'\')">שמור</button>');
+}
+function saveGoalEdit(id){
+  const g=DB.goals.find(x=>x.id===id);if(!g)return;
+  const n=el('geName').value.trim();if(!n)return toast('הזן שם');
+  g.name=n;
+  g.targetAmount=parseFloat(el('geTgt').value)||0;
+  if(g.type==='personal')g.targetDate=el('geDate').value||null;
+  g.monthlyPlan=parseFloat(el('gePlan').value)||0;
+  g.saved=parseFloat(el('geSaved').value)||0;
+  g.createdDate=el('geSavedDate').value||g.createdDate;
+  save();closeSheet();render();toast('נשמר');
 }
 function openDeposit(id){
   const g=DB.goals.find(x=>x.id===id);

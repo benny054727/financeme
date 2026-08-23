@@ -129,7 +129,11 @@ function goalCard(g){
    '<span>'+(r.eta?'צפוי: '+r.eta:'')+'</span></div>'+
    (g.type==='fund'?goalGrowthChart(g):'')+
    (r.behind?'<div class="alert a-note" style="margin-top:11px"><div class="aic">📉</div><div class="atx"><b>בפיגור</b>ההפרשה הנוכחית ('+fmt(g.monthlyPlan)+') לא תספיק ליעד בזמן.</div></div>':'')+
-   '<div class="btnrow" style="margin-top:12px"><button class="btn sec" style="padding:10px;font-size:13px" onclick="openDeposit(\''+g.id+'\')">הפקד</button>'+
+   /* grid-template-columns מקומי: .btnrow המשותפת בנויה ל-2 כפתורים (1fr 1fr)
+      ומשמשת ככה במקומות אחרים (אשף ההרשמה וכו') — כאן יש 3 כפתורים, אז דורסים
+      מקומית בלי לגעת בכלל המשותף */
+   '<div class="btnrow" style="margin-top:12px;grid-template-columns:1fr 1fr 1fr"><button class="btn sec" style="padding:10px;font-size:13px" onclick="openDeposit(\''+g.id+'\')">הפקד</button>'+
+   '<button class="btn sec" style="padding:10px;font-size:13px" onclick="openGoalEdit(\''+g.id+'\')">ערוך</button>'+
    '<button class="btn dgr" style="padding:10px;font-size:13px" onclick="delGoal(\''+g.id+'\')">מחק</button></div></div>';
 }
 /* גרף צמיחה לקרן עתיד (סעיף 6.5 באפיון) — בנוי מתנועות ה-saving שמקושרות ל-goalId,
