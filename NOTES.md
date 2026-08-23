@@ -2,7 +2,8 @@
 
 **מה זה:** אפליקציית ניהול פיננסי אישי בעברית (RTL), PWA, מחוברת לענן.
 
-**קבצים:** `index.html` / `style.css` / `app.js` / `sw.js` / `test.html` — בריפו
+**קבצים:** `index.html` / `style.css` / `js/*.js` (13 קבצים — פוצל מ-app.js
+יחיד; ראו הערה ב-index.html למה לא ES modules אמיתיים) / `sw.js` / `test.html` — בריפו
 **`benny054727/financeme`** (GitHub), ענף `claude/mini-personal-project-56d7e3`
 שהוא גם ברירת המחדל.
 
@@ -36,6 +37,31 @@
      היה דורס שינויים מקומיים בגרסה ישנה מהענן. תוקן עם חותמת זמן מקומית
      (`meta.localSavedAt`) שמשווים מול הענן בטעינה
 
+## מבנה js/ (פוצל מ-app.js יחיד — סעיף תחזוקה מחוות דעת מקצועית)
+
+| קובץ | תוכן |
+|---|---|
+| `data.js` | KEY, Supabase client+sync+auth, DEFAULT_CATS, blank/migrate/save/uid |
+| `utils.js` | עזרי תאריך ומספר |
+| `calc.js` | CALC (מנוע חישוב) + LOANS (מנוע הלוואות) |
+| `recurring.js` | genRecurring — ייצור תנועות מהוראות קבע |
+| `alerts.js` | alerts() — מנוע התראות |
+| `views-home.js` | el/toast/esc/render (הדיספצ'ר), vHome |
+| `views-account-cards.js` | vAccount, vCards |
+| `views-expenses-savings.js` | vExpenses, vSavings, txRow/donut/catSummary (עזרים משותפים) |
+| `sheets-entry.js` | sheet()/closeSheet() (המודאל הבסיסי), הוספה/עריכת תנועה, עורך קטגוריות |
+| `sheets-recurring-goals.js` | סנכרון יתרה, הוראות קבע, הכנסה משתנה, יעדי חיסכון, הלוואות |
+| `sheets-settings.js` | כל מסכי ההגדרות, כרטיסים, גיבוי/ייבוא/איפוס/מחיקת ענן |
+| `setup.js` | אשף התקנה ראשונית |
+| `main.js` | **חייב להיטען אחרון** — bootstrap (event listeners + init IIFE) |
+
+**חשוב:** script רגיל בכל קובץ (לא `type="module"`) — כל הקבצים חולקים global
+scope בדיוק כמו כשהיו קובץ אחד, כי האפליקציה נשענת על `onclick="fn()"` בתוך
+HTML שנוצר דינמית (ES modules אמיתיים היו דורשים לחשוף כל פונקציה כזו בנפרד
+על `window`, עשרות מקומות, קל לפספס אחת ולשבור כפתור בשקט). הסדר בין הקבצים
+לא קריטי מלבד `main.js` שחייב אחרון — הכל כאן הצהרות שנקראות בפועל הרבה יותר
+מאוחר. אם מוסיפים קובץ js/ חדש — לזכור לעדכן גם `index.html` וגם `test.html`.
+
 ## דברים חשובים לזכור להמשך
 
 - **תמיד לענות בעברית** (המשתמש ביקש את זה מפורשות)
@@ -44,5 +70,5 @@
 - לפני כל שינוי בנוסחאות חישוב — כדאי להריץ/לעדכן את `test.html`
 - אחרי כל push, לפעמים צריך רענון קשה בדפדפן (יש תיקון `no-store` ב-`sw.js`
   שאמור למנוע את זה מעכשיו)
-- כל שינוי בקוד: לעשות `node --check app.js`, לבדוק ב-Playwright headless אם
+- כל שינוי בקוד: לעשות `node --check js/<הקובץ הרלוונטי>.js`, לבדוק ב-Playwright headless אם
   רלוונטי, ואז `git add/commit/push` לענף `claude/mini-personal-project-56d7e3`

@@ -29,7 +29,7 @@ h3{margin:22px 0 8px;font-size:14px;color:#93c5fd;border-bottom:1px solid #33415
 <div id="summary">מריץ בדיקות...</div>
 <div id="results"></div>
 
-<!-- מוקים מינימליים כדי ש-app.js ייטען בלי לקרוס (הוא מצפה ל-Supabase ולכמה אלמנטים ב-DOM) -->
+<!-- מוקים מינימליים כדי שקבצי js/*.js ייטענו בלי לקרוס (מצפים ל-Supabase ולכמה אלמנטים ב-DOM) -->
 <div id="login" class="hide"></div>
 <div id="setup" class="hide"></div>
 <div id="app" class="hide"></div>
@@ -38,7 +38,7 @@ h3{margin:22px 0 8px;font-size:14px;color:#93c5fd;border-bottom:1px solid #33415
 <div id="syncBadge"></div>
 
 <script>
-/* מוק מינימלי ל-Supabase — לא מתחבר לשום שרת אמיתי, רק מונע קריסה בטעינת app.js */
+/* מוק מינימלי ל-Supabase — לא מתחבר לשום שרת אמיתי, רק מונע קריסה בטעינת js/*.js */
 window.supabase = {
   createClient: () => ({
     auth: {
@@ -55,7 +55,19 @@ window.supabase = {
   })
 };
 </script>
-<script src="app.js"></script>
+<script src="js/data.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/recurring.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/views-home.js"></script>
+<script src="js/views-account-cards.js"></script>
+<script src="js/views-expenses-savings.js"></script>
+<script src="js/sheets-entry.js"></script>
+<script src="js/sheets-recurring-goals.js"></script>
+<script src="js/sheets-settings.js"></script>
+<script src="js/setup.js"></script>
+<script src="js/main.js"></script>
 <script>
 /* ============================================================
    מריצים כאן — חשוב: אף פונקציה כאן לא קוראת ל-save()/load()/genRecurring()/boot(),

@@ -61,8 +61,29 @@
 <main id="view"></main>
 </div>
 
-<!-- Supabase JS SDK — חייב להיטען לפני app.js -->
+<!-- Supabase JS SDK — חייב להיטען לפני קבצי js/*.js -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="app.js"></script>
+<!-- app.js פוצל ל-13 קבצים תחת js/ (סעיף תחזוקה מחוות הדעת — קובץ יחיד בן ~2000
+     שורות היה קשה לנווט). כולם script רגיל (לא type="module"): האפליקציה נשענת
+     בכבדות על onclick="functionName(...)" בתוך HTML שנוצר דינמית, ואלה עובדים
+     רק אם הפונקציות נגישות כגלובליות — מודולי ES אמיתיים היו דורשים לחשוף כל
+     פונקציה כזו בנפרד על window (עשרות מקומות, קל לפספס אחת ולשבור כפתור בשקט).
+     script רגיל חולק global scope בין כל הקבצים בדיוק כמו קודם בקובץ אחד —
+     אותה התנהגות בדיוק, רק מאורגן. הסדר בין הקבצים (מלבד main.js שחייב להיות
+     אחרון) לא קריטי: הכל כאן הצהרות function/const שרק נקראות בפועל הרבה יותר
+     מאוחר, אחרי שכל הקבצים כבר נטענו. -->
+<script src="js/data.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/recurring.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/views-home.js"></script>
+<script src="js/views-account-cards.js"></script>
+<script src="js/views-expenses-savings.js"></script>
+<script src="js/sheets-entry.js"></script>
+<script src="js/sheets-recurring-goals.js"></script>
+<script src="js/sheets-settings.js"></script>
+<script src="js/setup.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

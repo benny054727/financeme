@@ -8,7 +8,10 @@
    ל"קאש-first" בלי כוונה: fetch() רגיל מכבד את כותרות ה-Cache-Control של GitHub
    Pages ומחזיר תשובה מהקאש של הדפדפן בלי לגעת ברשת בכלל, כך שעדכוני קוד לא
    הגיעו למשתמש גם אחרי רענון וגם אחרי שה-SW "ניסה" לבדוק ברשת. */
-const CACHE = 'financeme-v2';
+// v3: app.js פוצל ל-13 קבצים תחת js/ — קופצים גרסה כדי לפנות מטמון ישן
+// שעוד מחזיק את app.js הישן (כבר לא קיים, activate() ימחק את הקאש הישן ממילא,
+// אבל זה גם מנקה מייד כל רשומת cache שקשורה לכתובת app.js הבודדת)
+const CACHE = 'financeme-v3';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
