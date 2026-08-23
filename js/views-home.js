@@ -99,28 +99,32 @@ function expenseTrendChart(){
   const expVals=months.map(y=>CALC.month(y).out);
   const savVals=months.map(y=>CALC.month(y).saving);
   const mx=Math.max(...expVals,...savVals,1);
-  const W=320,H=132,maxH=60,baseY=88;
-  const slotW=W/6,barW=14,barGap=3,groupW=barW*2+barGap,groupOff=(slotW-groupW)/2;
+  // שתי שורות הסכומים קבועות במקום למעלה — לא "צפות" מעל כל עמודה לפי הגובה
+  // שלה (זה מה שגרם למספרים להיראות לא מיושרים/מתנגשים בין חודשים שונים).
+  // העמודות עצמן גדלות מלמטה עד גובה מקסימלי שנשאר תמיד מתחת לשורות הסכום.
+  const W=320,H=158,expLblY=16,savLblY=32,baseY=124,maxH=56;
+  const slotW=W/6,barW=13,barGap=4,groupW=barW*2+barGap,groupOff=(slotW-groupW)/2;
   let bars='<g font-family="Heebo">';
+  bars+='<line x1="2" y1="'+baseY+'" x2="'+(W-2)+'" y2="'+baseY+'" stroke="#eef1f6" stroke-width="1"/>';
   months.forEach((y,i)=>{
     const isCur=y===curYM();
-    const gx=slotW*i+groupOff;
-    const ev=expVals[i],eh=mx?Math.round((ev/mx)*maxH):0,ey=baseY-eh;
-    const sv=savVals[i],sh=mx?Math.round((sv/mx)*maxH):0,sy=baseY-sh;
-    bars+='<rect x="'+gx+'" y="'+ey+'" width="'+barW+'" height="'+eh+'" rx="3" '+
-      (isCur?'fill="#fee2e2" stroke="#e5383b" stroke-width="1.5" stroke-dasharray="3 2"':'fill="#e5383b"')+'/>'+
-      '<rect x="'+(gx+barW+barGap)+'" y="'+sy+'" width="'+barW+'" height="'+sh+'" rx="3" '+
-      (isCur?'fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3 2"':'fill="#7c3aed"')+'/>'+
-      (ev>0?'<text x="'+(gx+barW/2)+'" y="'+(ey-5)+'" text-anchor="middle" font-size="8" fill="#64748b">'+fmt(ev)+'</text>':'')+
-      (sv>0?'<text x="'+(gx+barW+barGap+barW/2)+'" y="'+(sy-5)+'" text-anchor="middle" font-size="8" fill="#64748b">'+fmt(sv)+'</text>':'')+
-      '<text x="'+(gx+groupW/2)+'" y="'+(baseY+15)+'" text-anchor="middle" font-size="9" fill="#64748b">'+esc(ymShort(y))+'</text>'+
-      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+27)+'" text-anchor="middle" font-size="8" fill="#94a3b8">עד כה</text>':'');
+    const gx=slotW*i+groupOff,cx1=gx+barW/2,cx2=gx+barW+barGap+barW/2;
+    const ev=expVals[i],eh=mx?Math.round((ev/mx)*maxH):0;
+    const sv=savVals[i],sh=mx?Math.round((sv/mx)*maxH):0;
+    const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed';
+    const mLbl=isCur?'#2563eb':'#94a3b8';
+    bars+=(eh?'<rect x="'+gx+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="4" fill="'+expFill+'"/>':'')+
+      (sh?'<rect x="'+(gx+barW+barGap)+'" y="'+(baseY-sh)+'" width="'+barW+'" height="'+sh+'" rx="4" fill="'+savFill+'"/>':'')+
+      (ev>0?'<text x="'+cx1+'" y="'+expLblY+'" text-anchor="middle" font-size="9" font-weight="700" fill="#e5383b">'+fmt(ev)+'</text>':'')+
+      (sv>0?'<text x="'+cx2+'" y="'+savLblY+'" text-anchor="middle" font-size="9" font-weight="700" fill="#7c3aed">'+fmt(sv)+'</text>':'')+
+      '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9.5" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
+      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7.5" fill="#94a3b8">עד כה</text>':'');
   });
   bars+='</g>';
-  const legend='<span class="mini" style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#e5383b;display:inline-block"></span>הוצאות</span>'+
-    '<span class="mini" style="display:inline-flex;align-items:center;gap:5px;margin-inline-start:14px"><span style="width:9px;height:9px;border-radius:3px;background:#7c3aed;display:inline-block"></span>חיסכון</span>';
+  const legend='<span class="mini" style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2.5px;background:#e5383b;display:inline-block"></span>הוצאות</span>'+
+    '<span class="mini" style="display:inline-flex;align-items:center;gap:5px;margin-inline-start:14px"><span style="width:8px;height:8px;border-radius:2.5px;background:#7c3aed;display:inline-block"></span>חיסכון</span>';
   return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות וחיסכון — 6 חודשים אחרונים</div>'+
-    '<div style="margin-bottom:8px">'+legend+'</div>'+
+    '<div style="margin-bottom:6px">'+legend+'</div>'+
     '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';
 }
 function updAlertDots(wrap){
