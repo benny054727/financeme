@@ -3,7 +3,15 @@
    ============================================================ */
 let PAGE='home',selYM=null,expTab='fixed',recBoxOpen=false;
 const el=id=>document.getElementById(id);
-function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+// מערים טוסטים זה מעל זה (margin-bottom לפי כמה כבר על המסך) במקום לתת להם
+// לחפוף בול על אותו מיקום — קורה בפועל כשפעולה אחת מייצרת שני טוסטים ברצף
+// (למשל שמירת הוראת קבע + עדכון אוטומטי של יתרת הבנק, ראו genRecurring())
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+  const stacked=document.querySelectorAll('.toast').length;
+  if(stacked)t.style.marginBottom=(stacked*54)+'px';
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2200);
+}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 function render(){
