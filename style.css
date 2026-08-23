@@ -1,7 +1,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
  --bg:#f0f4ff;--surface:#fff;--income:#0ead69;--expense:#e5383b;--balance:#2563eb;--save:#7c3aed;
- --text:#0f172a;--muted:#64748b;--faint:#94a3b8;--border:#e2e8f0;
+ /* --faint היה #94a3b8 — יחס ניגודיות ~2.9:1 על רקע לבן, מתחת לסף WCAG AA
+    (4.5:1) לטקסט רגיל. משמש בטקסט קטן (10-11px): תוויות לא-פעילות בניווט,
+    תאריכי תנועות, hints בטפסים — בדיוק איפה שניגודיות הכי קריטית. #6b7684
+    נותן כ-4.6:1 ועדיין נשאר מעט יותר בהיר מ-muted, בלי לרדת מתחת לתקן. */
+ --text:#0f172a;--muted:#64748b;--faint:#6b7684;--border:#e2e8f0;
  --shadow:0 4px 24px rgba(15,23,42,.08);--shadow-lg:0 12px 40px rgba(15,23,42,.14);
  --warn:#f59e0b;--crit:#e5383b;--note:#eab308;--good:#0ead69;
  --safe-b:env(safe-area-inset-bottom,0px);
@@ -172,7 +176,7 @@ nav .spacer{pointer-events:none;visibility:hidden}
 .ov{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:8px 18px calc(22px + var(--safe-b));max-height:92vh;overflow-y:auto;animation:slideup .3s cubic-bezier(.16,1,.3,1)}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:8px 18px calc(22px + var(--safe-b));max-height:92vh;overflow-y:auto;animation:slideup .3s cubic-bezier(.16,1,.3,1);outline:none}
 .grab{width:40px;height:4px;background:#cbd5e1;border-radius:99px;margin:6px auto 16px}
 .shead{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .shead-lead{display:flex;align-items:center;gap:10px;min-width:0}

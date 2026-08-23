@@ -24,8 +24,8 @@
 <div id="login" class="setup hide">
   <div class="slogo"><div class="si">💰</div><h1>FinanceMe</h1><p>התחבר כדי לגשת לנתונים שלך מכל מכשיר — הם מסונכרנים בענן.</p></div>
   <div class="box">
-    <div class="fld"><label>אימייל</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"/></div>
-    <div class="fld"><label>סיסמה</label><input id="authPw" type="password" placeholder="לפחות 6 תווים" autocomplete="current-password"/></div>
+    <div class="fld"><label for="authEmail">אימייל</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"/></div>
+    <div class="fld"><label for="authPw">סיסמה</label><input id="authPw" type="password" placeholder="לפחות 6 תווים" autocomplete="current-password"/></div>
     <button class="btn" onclick="doSignIn()">התחברות</button>
     <button class="btn sec" style="margin-top:10px" onclick="doSignUp()">משתמש חדש — הרשמה</button>
     <div id="authMsg" class="mini" style="margin-top:12px;text-align:center"></div>
@@ -41,7 +41,7 @@
   <div class="blob b1"></div><div class="blob b2"></div>
   <div class="hinner">
     <div class="brand"><div class="bicon">💰</div><div class="bname">FinanceMe</div></div>
-    <div class="hbtns"><div id="syncBadge" title="מסנכרן..." onclick="handleSyncBadgeClick()">⏳</div><button class="hbtn" onclick="openSettings()">⚙️</button></div>
+    <div class="hbtns"><button id="syncBadge" title="מסנכרן..." aria-label="מסנכרן..." onclick="handleSyncBadgeClick()">⏳</button><button class="hbtn" onclick="openSettings()" aria-label="הגדרות">⚙️</button></div>
   </div>
   <div class="htitle"><h1 id="ptitle"></h1><p id="psub"></p></div>
 </header>
@@ -50,13 +50,13 @@
      בכל מקרה, כך שהמיקום כאן לא משפיע על התצוגה הקיימת שם. ה-fab מקונן כילד ראשון
      בתוך ה-nav מאותה סיבה בדיוק: במסך רחב הוא הופך לפריט רגיל בתוך שורת הניווט. -->
 <nav id="nav" class="hide">
-  <button id="fab" class="fab hide" onclick="openEntry()">+</button>
-  <button data-p="home" class="on"><span class="ni">🏠</span>בית</button>
-  <button data-p="account"><span class="ni">🏦</span>עו"ש</button>
-  <button class="spacer"><span class="ni">•</span>-</button>
-  <button data-p="cards"><span class="ni">💳</span>אשראי</button>
-  <button data-p="expenses"><span class="ni">📋</span>הוצאות</button>
-  <button data-p="savings"><span class="ni">🎯</span>חיסכון</button>
+  <button id="fab" class="fab hide" onclick="openEntry()" aria-label="הוספת תנועה">+</button>
+  <button data-p="home" class="on"><span class="ni" aria-hidden="true">🏠</span>בית</button>
+  <button data-p="account"><span class="ni" aria-hidden="true">🏦</span>עו"ש</button>
+  <button class="spacer" tabindex="-1" aria-hidden="true"><span class="ni">•</span>-</button>
+  <button data-p="cards"><span class="ni" aria-hidden="true">💳</span>אשראי</button>
+  <button data-p="expenses"><span class="ni" aria-hidden="true">📋</span>הוצאות</button>
+  <button data-p="savings"><span class="ni" aria-hidden="true">🎯</span>חיסכון</button>
 </nav>
 <main id="view"></main>
 </div>

@@ -953,17 +953,38 @@ function catSummary(catId){
    ============================================================ */
 // backFn (אופציונלי): שם פונקציה (מחרוזת, בלי ()) שפותחת את המסך ההורה — למשל
 // 'openSettings'. כשמוגדר, מוצג כפתור "‹ חזרה" ליד הכותרת, בנוסף ל-✕ שסוגר לגמרי.
+// שומר את האלמנט שהיה בפוקוס לפני פתיחת החלונית, כדי להחזיר אליו פוקוס בסגירה —
+// בלי זה, משתמש מקלדת/קורא-מסך "מאבד" את המקום שלו בדף אחרי כל חלונית שנסגרת
+let sheetReturnFocus=null;
 function sheet(title,body,onOpen,backFn){
   closeSheet();
+  sheetReturnFocus=document.activeElement;
   const ov=document.createElement('div');ov.className='ov';ov.id='ov';
-  ov.innerHTML='<div class="sheet"><div class="grab"></div><div class="shead"><div class="shead-lead">'+
+  ov.innerHTML='<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"><div class="grab"></div><div class="shead"><div class="shead-lead">'+
     (backFn?'<button class="backbtn" onclick="'+backFn+'()">‹ חזרה</button>':'')+
-    '<h3 id="sheetTitle">'+esc(title)+'</h3></div><button class="xbtn" onclick="closeSheet()">✕</button></div>'+body+'</div>';
+    '<h3 id="sheetTitle">'+esc(title)+'</h3></div><button class="xbtn" onclick="closeSheet()" aria-label="סגור">✕</button></div>'+body+'</div>';
   ov.addEventListener('click',e=>{if(e.target===ov)closeSheet();});
+  // Esc סוגר; Tab/Shift+Tab נשארים כלואים בתוך החלונית (focus trap) כדי שמשתמש מקלדת
+  // לא "יברח" בטעות לתוכן שמאחורי ה-overlay בזמן שהיא פתוחה
+  ov.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){closeSheet();return;}
+    if(e.key==='Tab'){
+      const f=ov.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+      if(!f.length)return;
+      const first=f[0],last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
   document.body.appendChild(ov);
+  const sh=ov.querySelector('.sheet');if(sh)sh.focus();
   if(onOpen)onOpen();
 }
-function closeSheet(){const o=el('ov');if(o)o.remove();}
+function closeSheet(){
+  const o=el('ov');if(o)o.remove();
+  if(sheetReturnFocus&&sheetReturnFocus.focus)try{sheetReturnFocus.focus();}catch(e){}
+  sheetReturnFocus=null;
+}
 
 /* ---- הזנה מהירה ---- */
 let E={dir:'out',cat:null,method:null,cardId:null,inst:1,freq:'once'};
@@ -971,24 +992,24 @@ function openEntry(){
   incType='salary';E={dir:'out',cat:null,kind:'variable',method:DB.meta.lastMethod||(DB.cards[0]?'card':'account'),cardId:DB.meta.lastCard||(DB.cards[0]?DB.cards[0].id:null),inst:1,freq:'once'};
   const b=
    '<div class="seg"><button id="dOut" class="on" onclick="setDir(\'out\')">הוצאה</button><button id="dIn" onclick="setDir(\'in\')">הכנסה</button></div>'+
-   '<div class="fld"><input id="eAmt" class="amtin" type="number" inputmode="decimal" placeholder="0" oninput="prevCharge()"/></div>'+
-   '<div class="fld" id="eKindWrap"><label>סוג ההוצאה</label><div id="eKinds" class="chips">'+
+   '<div class="fld"><input id="eAmt" class="amtin" type="number" inputmode="decimal" placeholder="0" aria-label="סכום" oninput="prevCharge()"/></div>'+
+   '<div class="fld" id="eKindWrap"><label>סוג ההוצאה</label><div id="eKinds" class="chips" role="group" aria-label="סוג ההוצאה">'+
      '<button class="chip" data-k="fixed" onclick="setKind(this)">קבועה</button>'+
      '<button class="chip on" data-k="variable" onclick="setKind(this)">משתנה</button></div></div>'+
-   '<div class="fld"><label>קטגוריה</label><div id="eCats" class="catgrid"></div></div>'+
-   '<div class="fld" id="eMethodWrap"><label>אמצעי תשלום</label><div id="eMethods" class="chips"></div></div>'+
-   '<div class="fld" id="eIncWrap" style="display:none"><label>סוג הכנסה</label><div class="chips">'+
+   '<div class="fld"><label>קטגוריה</label><div id="eCats" class="catgrid" role="group" aria-label="קטגוריה"></div></div>'+
+   '<div class="fld" id="eMethodWrap"><label>אמצעי תשלום</label><div id="eMethods" class="chips" role="group" aria-label="אמצעי תשלום"></div></div>'+
+   '<div class="fld" id="eIncWrap" style="display:none"><label>סוג הכנסה</label><div class="chips" role="group" aria-label="סוג הכנסה">'+
      '<button class="chip on" data-it="salary" onclick="setInc(this)">משכורת</button>'+
      '<button class="chip" data-it="reserve" onclick="setInc(this)">מענק מילואים</button>'+
      '<button class="chip" data-it="other" onclick="setInc(this)">אחר</button></div></div>'+
-   '<div class="row2"><div class="fld"><label>תאריך</label><input id="eDate" type="date" value="'+iso(today())+'"/></div>'+
-   '<div class="fld" id="eInstWrap"><label>תדירות</label><div class="seg" id="eFreqSeg">'+
+   '<div class="row2"><div class="fld"><label for="eDate">תאריך</label><input id="eDate" type="date" value="'+iso(today())+'"/></div>'+
+   '<div class="fld" id="eInstWrap"><label>תדירות</label><div class="seg" id="eFreqSeg" role="group" aria-label="תדירות">'+
      '<button class="on" data-f="once" onclick="setFreq(\'once\')">פעם אחת</button>'+
      '<button data-f="inst" onclick="setFreq(\'inst\')">בתשלומים</button>'+
      '<button data-f="rec" onclick="setFreq(\'rec\')">הוראת קבע</button></div>'+
      '<div id="eInstCountWrap" style="display:none;margin-top:10px"><select id="eInst" onchange="prevCharge()">'+
        [2,3,4,5,6,8,10,12,18,24,36].map(n=>'<option value="'+n+'">'+n+' תשלומים</option>').join('')+'</select></div></div></div>'+
-   '<div class="fld"><label>הערה</label><input id="eNote" type="text" placeholder="למשל: סופר, דלק..."/></div>'+
+   '<div class="fld"><label for="eNote">הערה</label><input id="eNote" type="text" placeholder="למשל: סופר, דלק..."/></div>'+
    '<div id="ePrev" class="note" style="margin-bottom:15px"></div>'+
    '<button class="btn" onclick="saveEntry()">שמור</button>';
   sheet('רישום תנועה',b,()=>{renderCats();renderMethods();prevCharge();
@@ -1114,10 +1135,10 @@ function openTx(id){
   let h='';
   if(isRec)h+='<div class="note" style="margin-bottom:15px">נוצר אוטומטית מהוראת הקבע "'+esc(x.note)+'". מחיקה כאן מוחקת את המופע של החודש בלבד — ההוראה תמשיך לחודשים הבאים.</div>';
   if(ins)h+='<div class="note" style="margin-bottom:15px">תשלום '+ins.index+' מתוך '+ins.total+'. אפשר למחוק את התשלום הבודד או את כל הסדרה.</div>';
-  h+='<div class="fld"><label>סכום</label><input id="tAmt" class="amtin" type="number" inputmode="decimal" value="'+x.amount+'"/></div>'+
-     '<div class="fld"><label>קטגוריה</label><select id="tCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
-     '<div class="fld"><label>תאריך ההוצאה</label><input id="tDate" type="date" value="'+x.date+'"/></div>'+
-     '<div class="fld"><label>הערה</label><input id="tNote" type="text" value="'+esc(x.note||'')+'"/></div>'+
+  h+='<div class="fld"><label for="tAmt">סכום</label><input id="tAmt" class="amtin" type="number" inputmode="decimal" value="'+x.amount+'"/></div>'+
+     '<div class="fld"><label for="tCat">קטגוריה</label><select id="tCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
+     '<div class="fld"><label for="tDate">תאריך ההוצאה</label><input id="tDate" type="date" value="'+x.date+'"/></div>'+
+     '<div class="fld"><label for="tNote">הערה</label><input id="tNote" type="text" value="'+esc(x.note||'')+'"/></div>'+
      '<div class="note" style="margin-bottom:16px">'+(cd?'💳 '+esc(cd.name)+' · ירד מהעו"ש ב-'+dLabel(x.chargeDate):(x.method==='cash'?'💵 מזומן — לא משפיע על העו"ש':'🏦 מהעו"ש ב-'+dLabel(x.chargeDate)))+'</div>'+
      '<button class="btn" onclick="saveTx()">שמור שינויים</button>'+
      '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה</button>'+
@@ -1173,17 +1194,17 @@ function openFixedEdit(id){
   const cats=DB.categories.filter(k=>k.kind==='fixed'),day=+x.date.slice(8,10);
   sheet('עריכת הוצאה קבועה',
    '<div class="note" style="margin-bottom:15px">💡 "שמור" עורך רק את התנועה הזו. "הפוך להוראת קבע" יוצר בנוסף חיוב אוטומטי שיירשם לבד כל חודש מעכשיו — שתי פעולות נפרדות, לא קורה אחת בלי שתבקש.</div>'+
-   '<div class="fld"><label>שם ההוצאה</label><input id="rName" type="text" value="'+esc(x.note||CALC.cat(x.categoryId).name)+'"/></div>'+
-   '<div class="fld"><label>קטגוריה</label><select id="rCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
-   '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(!x.cardId?'selected':'')+'>מהעו"ש</option>'+
+   '<div class="fld"><label for="rName">שם ההוצאה</label><input id="rName" type="text" value="'+esc(x.note||CALC.cat(x.categoryId).name)+'"/></div>'+
+   '<div class="fld"><label for="rCat">קטגוריה</label><select id="rCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
+   '<div class="row2"><div class="fld"><label for="rMethod">אמצעי תשלום</label><select id="rMethod"><option value="account" '+(!x.cardId?'selected':'')+'>מהעו"ש</option>'+
      DB.cards.map(c=>'<option value="'+c.id+'" '+(x.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+day+'"/></div></div>'+
-   '<div class="fld"><label>סכום</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+x.amount+'"/></div>'+
+   '<div class="fld"><label for="rDay">יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+day+'"/></div></div>'+
+   '<div class="fld"><label for="rAmt">סכום</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+x.amount+'"/></div>'+
    '<button class="btn sec" onclick="saveFixedTxOnly(\''+id+'\')">שמור (רק את התנועה הזו)</button>'+
-   '<div class="fld" style="margin-top:18px"><label>סוג הוראת קבע (אופציונלי — רק אם לוחצים למטה)</label><div class="seg"><button id="rTypeReg" class="on" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
+   '<div class="fld" style="margin-top:18px"><label>סוג הוראת קבע (אופציונלי — רק אם לוחצים למטה)</label><div class="seg" role="group" aria-label="סוג הוראת קבע"><button id="rTypeReg" class="on" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
    '<div id="rRegWrap" class="mini">משתמש בסכום שהוזן למעלה כסכום החודשי הקבוע.</div>'+
-   '<div id="rInstWrap" style="display:none"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0"/></div>'+
-     '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="12"/></div></div>'+
+   '<div id="rInstWrap" style="display:none"><div class="row2"><div class="fld"><label for="rTotal">סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0"/></div>'+
+     '<div class="fld"><label for="rCount">מספר תשלומים</label><input id="rCount" type="number" min="2" value="12"/></div></div>'+
      '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div></div>'+
    '<button class="btn" style="margin-top:8px" onclick="saveFixedEdit(\''+id+'\')">הפוך להוראת קבע</button>'+
    '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה</button>',
@@ -1231,12 +1252,12 @@ function openVariableEdit(id){
   TX=id;
   const cd=x.cardId?CALC.card(x.cardId):null,cats=DB.categories.filter(k=>k.kind==='variable');
   sheet('עריכת הוצאה משתנה',
-   '<div class="fld"><input id="vAmt" class="amtin" type="number" inputmode="decimal" value="'+x.amount+'"/></div>'+
-   '<div class="fld"><label>שם ההוצאה</label><input id="vName" type="text" value="'+esc(x.note||'')+'"/></div>'+
-   '<div class="fld"><label>קטגוריה</label><select id="vCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
-   '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="vMethod"><option value="cash" '+(x.method==='cash'?'selected':'')+'>מזומן</option><option value="account" '+(x.method==='account'?'selected':'')+'>מהעו"ש</option>'+
+   '<div class="fld"><input id="vAmt" class="amtin" type="number" inputmode="decimal" aria-label="סכום" value="'+x.amount+'"/></div>'+
+   '<div class="fld"><label for="vName">שם ההוצאה</label><input id="vName" type="text" value="'+esc(x.note||'')+'"/></div>'+
+   '<div class="fld"><label for="vCat">קטגוריה</label><select id="vCat">'+cats.map(k=>'<option value="'+k.id+'" '+(k.id===x.categoryId?'selected':'')+'>'+k.icon+' '+esc(k.name)+'</option>').join('')+'</select></div>'+
+   '<div class="row2"><div class="fld"><label for="vMethod">אמצעי תשלום</label><select id="vMethod"><option value="cash" '+(x.method==='cash'?'selected':'')+'>מזומן</option><option value="account" '+(x.method==='account'?'selected':'')+'>מהעו"ש</option>'+
      DB.cards.map(c=>'<option value="'+c.id+'" '+(x.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><label>תאריך ההוצאה</label><input id="vDate" type="date" value="'+x.date+'"/></div></div>'+
+   '<div class="fld"><label for="vDate">תאריך ההוצאה</label><input id="vDate" type="date" value="'+x.date+'"/></div></div>'+
    '<button class="btn" onclick="saveVariableEdit(\''+id+'\')">שמור שינויים</button>'+
    '<button class="btn dgr" style="margin-top:10px" onclick="delTx(false)">מחק תנועה</button>');
 }
@@ -1286,12 +1307,12 @@ function paintCats(){
     }
     const used=DB.transactions.filter(t=>t.categoryId===c.id).length;
     h+='<div class="cardrow"><div class="crh"><span>'+(used?used+' תנועות':'לא בשימוש')+'</span>'+
-      '<button class="delx" onclick="rmCat('+i+')">✕</button></div>'+
-      '<div class="row2"><div class="fld"><input placeholder="שם" value="'+esc(c.name)+'" oninput="tmpCats['+i+'].name=this.value"/></div>'+
-      '<div class="fld"><select onchange="tmpCats['+i+'].icon=this.value">'+ICONS.map(ic=>'<option value="'+ic+'" '+(c.icon===ic?'selected':'')+'>'+ic+'</option>').join('')+'</select></div></div>'+
-      '<div class="row2"><div class="fld"><label>סוג</label><select onchange="tmpCats['+i+'].kind=this.value;paintCats()">'+
+      '<button class="delx" onclick="rmCat('+i+')" aria-label="מחק קטגוריה">✕</button></div>'+
+      '<div class="row2"><div class="fld"><input placeholder="שם" aria-label="שם הקטגוריה" value="'+esc(c.name)+'" oninput="tmpCats['+i+'].name=this.value"/></div>'+
+      '<div class="fld"><select aria-label="סמל" onchange="tmpCats['+i+'].icon=this.value">'+ICONS.map(ic=>'<option value="'+ic+'" '+(c.icon===ic?'selected':'')+'>'+ic+'</option>').join('')+'</select></div></div>'+
+      '<div class="row2"><div class="fld"><label for="catKind'+i+'">סוג</label><select id="catKind'+i+'" onchange="tmpCats['+i+'].kind=this.value;paintCats()">'+
         ['fixed','variable','saving','income'].map(k=>'<option value="'+k+'" '+(c.kind===k?'selected':'')+'>'+lbl[k]+'</option>').join('')+'</select></div>'+
-      '<div class="fld"><label>תקציב חודשי</label><input type="number" value="'+(c.budget||0)+'" oninput="tmpCats['+i+'].budget=+this.value"/></div></div>'+
+      '<div class="fld"><label for="catBudget'+i+'">תקציב חודשי</label><input id="catBudget'+i+'" type="number" value="'+(c.budget||0)+'" oninput="tmpCats['+i+'].budget=+this.value"/></div></div>'+
       '<button class="btn sec" style="margin-top:2px" onclick="toggleCatEdit('+i+')">סגור</button></div>';
   });
   w.innerHTML=h;
@@ -1327,7 +1348,7 @@ function saveCats(){
 function openSync(){
   sheet('עדכון יתרה מהבנק',
    '<div class="note" style="margin-bottom:16px">היתרה מתעדכנת לבד מכל תנועה. השתמש בזה רק אם נוצר פער מול הבנק — למשל עמלה או חיוב שלא רשמת.</div>'+
-   '<div class="fld"><label>יתרה נוכחית בבנק</label><input id="sBal" class="amtin" type="number" inputmode="decimal" value="'+Math.round(CALC.balance())+'"/></div>'+
+   '<div class="fld"><label for="sBal">יתרה נוכחית בבנק</label><input id="sBal" class="amtin" type="number" inputmode="decimal" value="'+Math.round(CALC.balance())+'"/></div>'+
    '<button class="btn" onclick="doSync()">עדכן</button>');
 }
 function doSync(){
@@ -1347,17 +1368,17 @@ function recCatOptions(selCat){
   return cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('');
 }
 function recMethodDayHTML(r){
-  if(recDir==='in')return '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div>';
-  return '<div class="row2"><div class="fld"><label>אמצעי תשלום</label><select id="rMethod"><option value="account" '+(r&&r.method==='account'?'selected':'')+'>מהעו"ש</option>'+
+  if(recDir==='in')return '<div class="fld"><label for="rDay">יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div>';
+  return '<div class="row2"><div class="fld"><label for="rMethod">אמצעי תשלום</label><select id="rMethod"><option value="account" '+(r&&r.method==='account'?'selected':'')+'>מהעו"ש</option>'+
     DB.cards.map(c=>'<option value="'+c.id+'" '+(r&&r.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
-    '<div class="fld"><label>יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>';
+    '<div class="fld"><label for="rDay">יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>';
 }
 function recAmtSectionHTML(r,isInst){
-  if(recDir==='in')return '<div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r?r.amount:'')+'"/></div>';
-  return '<div class="fld"><label>סוג הוראה</label><div class="seg"><button id="rTypeReg" class="'+(isInst?'':'on')+'" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" class="'+(isInst?'on':'')+'" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
-   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label>סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:'')+'"/></div></div>'+
-   '<div id="rInstWrap" style="display:'+(isInst?'':'none')+'"><div class="row2"><div class="fld"><label>סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0" value="'+(isInst?Math.round(r.amount*r.installmentTotal*100)/100:'')+'"/></div>'+
-     '<div class="fld"><label>מספר תשלומים</label><input id="rCount" type="number" min="2" value="'+(isInst?r.installmentTotal:12)+'"/></div></div>'+
+  if(recDir==='in')return '<div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r?r.amount:'')+'"/></div>';
+  return '<div class="fld"><label>סוג הוראה</label><div class="seg" role="group" aria-label="סוג הוראה"><button id="rTypeReg" class="'+(isInst?'':'on')+'" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" class="'+(isInst?'on':'')+'" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
+   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:'')+'"/></div></div>'+
+   '<div id="rInstWrap" style="display:'+(isInst?'':'none')+'"><div class="row2"><div class="fld"><label for="rTotal">סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0" value="'+(isInst?Math.round(r.amount*r.installmentTotal*100)/100:'')+'"/></div>'+
+     '<div class="fld"><label for="rCount">מספר תשלומים</label><input id="rCount" type="number" min="2" value="'+(isInst?r.installmentTotal:12)+'"/></div></div>'+
      '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div>'+
      (isInst?'<div class="mini">כבר בוצעו '+monthsBetweenYM(r.startDate,curYM())+' מתוך '+r.installmentTotal+' תשלומים</div>':'')+'</div>';
 }
@@ -1373,11 +1394,11 @@ function openRecurring(editId,presetCatId,presetDir){
   sheet(r?(recDir==='in'?'עריכת הכנסה קבועה':'עריכת הוראת קבע'):(recDir==='in'?'הכנסה קבועה חדשה':'הוראת קבע חדשה'),
    (skippedThisMonth?'<div class="note" style="margin-bottom:15px">⚠️ התנועה של החודש הזה נמחקה בעבר ולא תיווצר מחדש לבד.<br/><button class="lnk" onclick="restoreSkippedRec(\''+r.id+'\')" style="color:var(--expense)">שחזר את התנועה</button></div>':'')+
    (r?'':'<div class="seg"><button id="rDirOut" class="'+(recDir==='out'?'on':'')+'" onclick="setRecDir(\'out\')">הוצאה קבועה</button><button id="rDirIn" class="'+(recDir==='in'?'on':'')+'" onclick="setRecDir(\'in\')">הכנסה קבועה</button></div>')+
-   '<div class="fld"><label>שם</label><input id="rName" type="text" placeholder="'+(recDir==='in'?'הכנסה נוספת':'ביטוח רכב')+'" value="'+(r?esc(r.name):'')+'"/></div>'+
-   '<div class="fld"><label>קטגוריה</label><select id="rCat">'+recCatOptions(selCat)+'</select></div>'+
-   '<div class="fld" id="rIncTypeWrap" style="display:'+(recDir==='in'?'':'none')+'"><label>סוג הכנסה</label><select id="rIncType">'+
+   '<div class="fld"><label for="rName">שם</label><input id="rName" type="text" placeholder="'+(recDir==='in'?'הכנסה נוספת':'ביטוח רכב')+'" value="'+(r?esc(r.name):'')+'"/></div>'+
+   '<div class="fld"><label for="rCat">קטגוריה</label><select id="rCat">'+recCatOptions(selCat)+'</select></div>'+
+   '<div class="fld" id="rIncTypeWrap" style="display:'+(recDir==='in'?'':'none')+'"><label for="rIncType">סוג הכנסה</label><select id="rIncType">'+
      [['salary','משכורת'],['reserve','מענק מילואים'],['other','אחר']].map(function(p){return '<option value="'+p[0]+'" '+((r?r.incomeType===p[0]:p[0]==='salary')?'selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></div>'+
-   (DB.goals.length?'<div class="fld" id="rGoalWrap" style="display:'+(recDir==='in'?'none':'')+'"><label>קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
+   (DB.goals.length?'<div class="fld" id="rGoalWrap" style="display:'+(recDir==='in'?'none':'')+'"><label for="rGoal">קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
      DB.goals.map(g=>'<option value="'+g.id+'" '+(r&&r.goalId===g.id?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>'+
      '<div class="hint">אם ההוראה היא הפקדה לחיסכון — קשר אותה ליעד כדי שהוא יתעדכן אוטומטית בכל חיוב</div></div>':'')+
    '<div id="rMethodDaySection">'+recMethodDayHTML(r)+'</div>'+
@@ -1463,11 +1484,11 @@ function openVariableIncome(editId){
   const selCat=v?v.categoryId:(cats[0]?cats[0].id:null);
   sheet(v?'עריכת הכנסה משתנה':'הכנסה משתנה חדשה',
    '<div class="note" style="margin-bottom:16px">למשכורת שמשתנה כל חודש (למשל לפי שעות) — לא נוצרת תנועה אוטומטית. המערכת רק תזכיר לך להזין את הסכום בפועל כל חודש.</div>'+
-   '<div class="fld"><label>שם</label><input id="viName" type="text" placeholder="משכורת" value="'+(v?esc(v.name):'')+'"/></div>'+
-   '<div class="fld"><label>קטגוריה</label><select id="viCat">'+cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><label>סוג הכנסה</label><select id="viIncType">'+
+   '<div class="fld"><label for="viName">שם</label><input id="viName" type="text" placeholder="משכורת" value="'+(v?esc(v.name):'')+'"/></div>'+
+   '<div class="fld"><label for="viCat">קטגוריה</label><select id="viCat">'+cats.map(c=>'<option value="'+c.id+'" '+(selCat===c.id?'selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>').join('')+'</select></div>'+
+   '<div class="fld"><label for="viIncType">סוג הכנסה</label><select id="viIncType">'+
      [['salary','משכורת'],['reserve','מענק מילואים'],['other','אחר']].map(function(p){return '<option value="'+p[0]+'" '+((v?v.incomeType===p[0]:p[0]==='salary')?'selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></div>'+
-   '<div class="fld"><label>בסביבות איזה יום בחודש היא מגיעה</label><input id="viDay" type="number" min="1" max="31" value="'+(v?v.dayOfMonth:10)+'"/><div class="hint">אם עד היום הזה לא הזנת את הסכום בפועל, נזכיר לך בהתראות</div></div>'+
+   '<div class="fld"><label for="viDay">בסביבות איזה יום בחודש היא מגיעה</label><input id="viDay" type="number" min="1" max="31" value="'+(v?v.dayOfMonth:10)+'"/><div class="hint">אם עד היום הזה לא הזנת את הסכום בפועל, נזכיר לך בהתראות</div></div>'+
    '<button class="btn" onclick="saveVariableIncome('+(v?"'"+v.id+"'":'null')+')">שמור</button>'+
    (v?'<button class="btn sec" style="margin-top:10px" onclick="toggleVariableIncome(\''+v.id+'\')">'+(v.active?'השהה תזכורת':'הפעל מחדש')+'</button>':'')+
    (v?'<button class="btn dgr" style="margin-top:10px" onclick="delVariableIncome(\''+v.id+'\')">מחק</button>':''));
@@ -1511,11 +1532,11 @@ function logVariableIncome(vId){
 /* ---- יעד ---- */
 function openGoal(type){
   sheet(type==='fund'?'קרן לעתיד':'יעד חיסכון חדש',
-   '<div class="fld"><label>שם</label><input id="gName" type="text" placeholder="'+(type==='fund'?'קרן עתיד':'טיול לחו"ל')+'"/></div>'+
-   '<div class="row2"><div class="fld"><label>'+(type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="gTgt" type="number" inputmode="decimal" placeholder="0"/></div>'+
-   '<div class="fld"><label>הפרשה חודשית</label><input id="gPlan" type="number" inputmode="decimal" placeholder="0"/></div></div>'+
-   (type==='personal'?'<div class="fld"><label>תאריך יעד</label><input id="gDate" type="date"/></div>':'')+
-   '<div class="fld"><label>כבר נצבר</label><input id="gSaved" type="number" inputmode="decimal" value="0"/></div>'+
+   '<div class="fld"><label for="gName">שם</label><input id="gName" type="text" placeholder="'+(type==='fund'?'קרן עתיד':'טיול לחו"ל')+'"/></div>'+
+   '<div class="row2"><div class="fld"><label for="gTgt">'+(type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="gTgt" type="number" inputmode="decimal" placeholder="0"/></div>'+
+   '<div class="fld"><label for="gPlan">הפרשה חודשית</label><input id="gPlan" type="number" inputmode="decimal" placeholder="0"/></div></div>'+
+   (type==='personal'?'<div class="fld"><label for="gDate">תאריך יעד</label><input id="gDate" type="date"/></div>':'')+
+   '<div class="fld"><label for="gSaved">כבר נצבר</label><input id="gSaved" type="number" inputmode="decimal" value="0"/></div>'+
    '<button class="btn" onclick="saveGoal(\''+type+'\')">שמור</button>');
 }
 function saveGoal(type){
@@ -1533,7 +1554,7 @@ function saveGoal(type){
 function openDeposit(id){
   const g=DB.goals.find(x=>x.id===id);
   sheet('הפקדה ל'+g.name,
-   '<div class="fld"><input id="dAmt" class="amtin" type="number" inputmode="decimal" value="'+(g.monthlyPlan||'')+'" placeholder="0"/></div>'+
+   '<div class="fld"><input id="dAmt" class="amtin" type="number" inputmode="decimal" aria-label="סכום ההפקדה" value="'+(g.monthlyPlan||'')+'" placeholder="0"/></div>'+
    '<div class="note" style="margin-bottom:16px">ההפקדה תירשם כתנועת חיסכון ותרד מהעו"ש. היא לא תיספר כהוצאה.</div>'+
    '<button class="btn" onclick="doDeposit(\''+id+'\')">הפקד</button>');
 }
@@ -1553,9 +1574,9 @@ function openLoanForm(editId){
   const loan=editId?DB.loans.find(l=>l.id===editId):null;
   tmpTracks=loan?JSON.parse(JSON.stringify(loan.tracks)):[{id:uid('trk'),name:'פריים',type:'prime',principal:0,margin:-0.5,fixedRate:0,termMonths:240}];
   sheet(loan?'עריכת הלוואה':'הלוואה חדשה',
-   '<div class="fld"><label>שם ההלוואה</label><input id="lnName" type="text" placeholder="משכנתא" value="'+(loan?esc(loan.name):'')+'"/></div>'+
-   '<div class="row2"><div class="fld"><label>תאריך תחילת ההלוואה</label><input id="lnStart" type="date" value="'+(loan?loan.startDate:iso(today()))+'"/></div>'+
-   '<div class="fld"><label>יום חיוב בחודש</label><input id="lnPayDay" type="number" min="1" max="31" value="'+(loan?loan.payDay||10:10)+'"/></div></div>'+
+   '<div class="fld"><label for="lnName">שם ההלוואה</label><input id="lnName" type="text" placeholder="משכנתא" value="'+(loan?esc(loan.name):'')+'"/></div>'+
+   '<div class="row2"><div class="fld"><label for="lnStart">תאריך תחילת ההלוואה</label><input id="lnStart" type="date" value="'+(loan?loan.startDate:iso(today()))+'"/></div>'+
+   '<div class="fld"><label for="lnPayDay">יום חיוב בחודש</label><input id="lnPayDay" type="number" min="1" max="31" value="'+(loan?loan.payDay||10:10)+'"/></div></div>'+
    '<div class="stitle" style="margin-top:18px;font-size:13px">מסלולים</div>'+
    '<div id="trackRows"></div>'+
    '<button class="addrow" onclick="addTrackRow()">+ הוסף מסלול</button>'+
@@ -1567,16 +1588,16 @@ function openLoanForm(editId){
 function paintTrackRows(){
   const w=el('trackRows');if(!w)return;
   w.innerHTML=tmpTracks.map((tr,i)=>
-   '<div class="cardrow"><div class="crh"><span>מסלול '+(i+1)+'</span>'+(tmpTracks.length>1?'<button class="delx" onclick="rmTrackRow('+i+')">✕</button>':'')+'</div>'+
-   '<div class="fld"><input placeholder="שם המסלול" value="'+esc(tr.name)+'" oninput="tmpTracks['+i+'].name=this.value"/></div>'+
-   '<div class="row2"><div class="fld"><label>סוג ריבית</label><select onchange="tmpTracks['+i+'].type=this.value;paintTrackRows()">'+
+   '<div class="cardrow"><div class="crh"><span>מסלול '+(i+1)+'</span>'+(tmpTracks.length>1?'<button class="delx" onclick="rmTrackRow('+i+')" aria-label="מחק מסלול">✕</button>':'')+'</div>'+
+   '<div class="fld"><input placeholder="שם המסלול" aria-label="שם המסלול" value="'+esc(tr.name)+'" oninput="tmpTracks['+i+'].name=this.value"/></div>'+
+   '<div class="row2"><div class="fld"><label for="trkType'+i+'">סוג ריבית</label><select id="trkType'+i+'" onchange="tmpTracks['+i+'].type=this.value;paintTrackRows()">'+
      Object.keys(TRACK_TYPES).map(k=>'<option value="'+k+'" '+(tr.type===k?'selected':'')+'>'+TRACK_TYPES[k]+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><label>קרן</label><input type="number" value="'+tr.principal+'" oninput="tmpTracks['+i+'].principal=+this.value"/></div></div>'+
+   '<div class="fld"><label for="trkPrincipal'+i+'">קרן</label><input id="trkPrincipal'+i+'" type="number" value="'+tr.principal+'" oninput="tmpTracks['+i+'].principal=+this.value"/></div></div>'+
    '<div class="row2">'+
      (tr.type==='prime'
-       ?'<div class="fld"><label>מרווח מריבית ב"י (%)</label><input type="number" step="0.01" value="'+tr.margin+'" oninput="tmpTracks['+i+'].margin=+this.value"/><div class="hint">שלילי = הנחה, חיובי = תוספת</div></div>'
-       :'<div class="fld"><label>ריבית שנתית (%)</label><input type="number" step="0.01" value="'+(tr.fixedRate||0)+'" oninput="tmpTracks['+i+'].fixedRate=+this.value"/></div>')+
-     '<div class="fld"><label>תקופה (חודשים)</label><input type="number" min="1" value="'+tr.termMonths+'" oninput="tmpTracks['+i+'].termMonths=+this.value"/></div>'+
+       ?'<div class="fld"><label for="trkMargin'+i+'">מרווח מריבית ב"י (%)</label><input id="trkMargin'+i+'" type="number" step="0.01" value="'+tr.margin+'" oninput="tmpTracks['+i+'].margin=+this.value"/><div class="hint">שלילי = הנחה, חיובי = תוספת</div></div>'
+       :'<div class="fld"><label for="trkRate'+i+'">ריבית שנתית (%)</label><input id="trkRate'+i+'" type="number" step="0.01" value="'+(tr.fixedRate||0)+'" oninput="tmpTracks['+i+'].fixedRate=+this.value"/></div>')+
+     '<div class="fld"><label for="trkTerm'+i+'">תקופה (חודשים)</label><input id="trkTerm'+i+'" type="number" min="1" value="'+tr.termMonths+'" oninput="tmpTracks['+i+'].termMonths=+this.value"/></div>'+
    '</div></div>').join('');
 }
 function addTrackRow(){tmpTracks.push({id:uid('trk'),name:'',type:'fixed',principal:0,margin:0,fixedRate:0,termMonths:180});paintTrackRows();}
@@ -1643,9 +1664,9 @@ function openAccountSettings(){
 function openFinancialSettings(){
   const S=DB.settings;
   sheet('מדיניות פיננסית',
-   '<div class="fld"><label>כרית ביטחון — סכום שלא לרדת מתחתיו</label><input id="stBuf" type="number" value="'+S.safetyBuffer+'"/></div>'+
-   '<div class="fld"><label>מסגרת אשראי בעו"ש</label><input id="stOd" type="number" value="'+S.overdraftLimit+'"/></div>'+
-   '<div class="fld"><label>יעד הוצאות חודשי (0 = בלי יעד)</label><input id="stTarget" type="number" value="'+(S.monthlyExpenseTarget||0)+'"/><div class="hint">סכום ההוצאות הכולל שאתה שואף לא לחרוג ממנו — קבועות, משתנות, הלוואות וחיסכון ביחד</div></div>'+
+   '<div class="fld"><label for="stBuf">כרית ביטחון — סכום שלא לרדת מתחתיו</label><input id="stBuf" type="number" value="'+S.safetyBuffer+'"/></div>'+
+   '<div class="fld"><label for="stOd">מסגרת אשראי בעו"ש</label><input id="stOd" type="number" value="'+S.overdraftLimit+'"/></div>'+
+   '<div class="fld"><label for="stTarget">יעד הוצאות חודשי (0 = בלי יעד)</label><input id="stTarget" type="number" value="'+(S.monthlyExpenseTarget||0)+'"/><div class="hint">סכום ההוצאות הכולל שאתה שואף לא לחרוג ממנו — קבועות, משתנות, הלוואות וחיסכון ביחד</div></div>'+
    '<button class="btn" onclick="saveFinancialSettings()">שמור</button>',null,'openSettings');
 }
 function saveFinancialSettings(){
@@ -1657,7 +1678,7 @@ function saveFinancialSettings(){
 function openLoanSettings(){
   const S=DB.settings;
   sheet('הלוואות וריבית',
-   '<div class="fld"><label>ריבית בנק ישראל הנוכחית (%)</label><input id="stBoi" type="number" step="0.01" value="'+(S.boiRate||0)+'"/><div class="hint">משמשת לחישוב כל מסלולי הפריים בהלוואות. עדכן ידנית כשבנק ישראל משנה את הריבית — למערכת אין גישה לאינטרנט.'+(S.boiRateUpdated?' עודכן לאחרונה: '+dLabel(S.boiRateUpdated)+'.':'')+'</div></div>'+
+   '<div class="fld"><label for="stBoi">ריבית בנק ישראל הנוכחית (%)</label><input id="stBoi" type="number" step="0.01" value="'+(S.boiRate||0)+'"/><div class="hint">משמשת לחישוב כל מסלולי הפריים בהלוואות. עדכן ידנית כשבנק ישראל משנה את הריבית — למערכת אין גישה לאינטרנט.'+(S.boiRateUpdated?' עודכן לאחרונה: '+dLabel(S.boiRateUpdated)+'.':'')+'</div></div>'+
    '<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="stLoanBal" type="checkbox" style="width:auto" '+(S.loansAffectBalance?'checked':'')+'/> כלול תשלומי הלוואות ביתרה הזמינה ובתחזית</label><div class="hint">כשמסומן, תשלום ההלוואה (לפי "יום חיוב" שהגדרת לה) יורד מ"יתרה זמינה" ומהתחזית — בדיוק כמו חיוב אשראי. בטל אם אתה כבר עוקב אחרי אותו חיוב בנפרד כהוראת קבע, כדי לא לספור פעמיים.</div></div>'+
    '<button class="btn" onclick="saveLoanSettings()">שמור</button>',null,'openSettings');
 }
@@ -1683,12 +1704,18 @@ function saveCards(){
 function openBackupSettings(){
   sheet('גיבוי ואזור מסוכן',
    '<div class="note" style="margin-bottom:12px">הנתונים מסונכרנים לענן אוטומטית, אבל עדיין כדאי לייצא גיבוי מקומי מדי פעם — רשת שלא זמינה זמנית לא תמחק כלום (יש מטמון מקומי), אבל גיבוי מקובץ הוא רשת ביטחון נוספת.</div>'+
+   // אזהרה לפני ייצוא: הקובץ המורד הוא JSON גלוי (לא מוצפן) עם כל המצב הפיננסי —
+   // תנועות, יתרות, הלוואות. חייבים לומר את זה לפני שהמשתמש מפיץ אותו בטעות
+   // (מייל, Drive משותף וכו').
+   '<div class="note" style="margin-bottom:12px;color:var(--crit)">⚠️ קובץ הגיבוי מכיל את כל המידע הפיננסי שלך בטקסט גלוי, בלי הצפנה — שמור אותו רק במקום מאובטח (לא במייל או בתיקייה משותפת).</div>'+
    '<div class="btnrow" style="margin-bottom:22px"><button class="btn sec" onclick="exportDB()">ייצא קובץ</button>'+
    '<button class="btn sec" onclick="el(\'impF\').click()">ייבא קובץ</button></div>'+
    '<input type="file" id="impF" accept=".json" style="display:none" onchange="importDB(this)"/>'+
    '<div class="dangerzone"><div class="dztitle">⚠️ אזור מסוכן</div>'+
-   '<div class="note" style="margin-bottom:12px">איפוס ימחק את כל הנתונים — תנועות, קטגוריות, הלוואות, יעדים וכל ההגדרות — לצמיתות. אין דרך לשחזר.</div>'+
-   '<button class="btn dgr" onclick="resetAll()">אפס הכל</button></div>',null,'openSettings');
+   '<div class="note" style="margin-bottom:12px">איפוס ימחק את כל הנתונים המקומיים במכשיר הזה — תנועות, קטגוריות, הלוואות, יעדים וכל ההגדרות. הנתונים בענן (אם מחוברים) לא נמחקים — תתחבר שוב כדי לשחזר אותם.</div>'+
+   '<button class="btn dgr" onclick="resetAll()">אפס נתונים מקומיים</button>'+
+   '<div class="note" style="margin:16px 0 12px">כדי למחוק את הנתונים גם מהענן — מכל המכשירים, לצמיתות — ולהתנתק:</div>'+
+   '<button class="btn dgr" onclick="deleteCloudData()">מחק את כל הנתונים מהענן</button></div>',null,'openSettings');
 }
 function drawCardRows(){
   tmpCards=JSON.parse(JSON.stringify(DB.cards));
@@ -1698,14 +1725,14 @@ let tmpCards=[];
 function paintCardRows(){
   const c=el('stCards');if(!c)return;
   c.innerHTML=tmpCards.map((x,i)=>
-   '<div class="cardrow"><div class="crh"><span>כרטיס '+(i+1)+'</span><button class="delx" onclick="rmCard('+i+')">✕</button></div>'+
-   '<div class="fld"><input placeholder="שם הכרטיס" value="'+esc(x.name)+'" oninput="tmpCards['+i+'].name=this.value"/></div>'+
-   '<div class="row2"><div class="fld"><select onchange="tmpCards['+i+'].brand=this.value">'+
+   '<div class="cardrow"><div class="crh"><span>כרטיס '+(i+1)+'</span><button class="delx" onclick="rmCard('+i+')" aria-label="מחק כרטיס">✕</button></div>'+
+   '<div class="fld"><input placeholder="שם הכרטיס" aria-label="שם הכרטיס" value="'+esc(x.name)+'" oninput="tmpCards['+i+'].name=this.value"/></div>'+
+   '<div class="row2"><div class="fld"><select aria-label="חברת האשראי" onchange="tmpCards['+i+'].brand=this.value">'+
      ['visa','mastercard','amex','isracard','diners'].map(b=>'<option value="'+b+'" '+(x.brand===b?'selected':'')+'>'+brandName(b)+'</option>').join('')+'</select></div>'+
-   '<div class="fld"><input placeholder="4 ספרות" maxlength="4" value="'+esc(x.last4)+'" oninput="tmpCards['+i+'].last4=this.value"/></div></div>'+
-   '<div class="row2"><div class="fld"><label>יום חיוב</label><input type="number" min="1" max="31" value="'+x.chargeDay+'" oninput="tmpCards['+i+'].chargeDay=+this.value"/><div class="hint">היום בחודש שהחיוב יורד בפועל מהעו"ש</div></div>'+
-   '<div class="fld"><label>יום חיתוך</label><input type="number" min="1" max="31" value="'+x.cutoffDay+'" oninput="tmpCards['+i+'].cutoffDay=+this.value"/><div class="hint">עסקאות עד היום הזה נכנסות לחיוב הקרוב</div></div></div>'+
-   '<div class="fld"><label>מסגרת</label><input type="number" value="'+x.limit+'" oninput="tmpCards['+i+'].limit=+this.value"/></div></div>').join('');
+   '<div class="fld"><input placeholder="4 ספרות" aria-label="4 ספרות אחרונות" maxlength="4" value="'+esc(x.last4)+'" oninput="tmpCards['+i+'].last4=this.value"/></div></div>'+
+   '<div class="row2"><div class="fld"><label for="cardChargeDay'+i+'">יום חיוב</label><input id="cardChargeDay'+i+'" type="number" min="1" max="31" value="'+x.chargeDay+'" oninput="tmpCards['+i+'].chargeDay=+this.value"/><div class="hint">היום בחודש שהחיוב יורד בפועל מהעו"ש</div></div>'+
+   '<div class="fld"><label for="cardCutoff'+i+'">יום חיתוך</label><input id="cardCutoff'+i+'" type="number" min="1" max="31" value="'+x.cutoffDay+'" oninput="tmpCards['+i+'].cutoffDay=+this.value"/><div class="hint">עסקאות עד היום הזה נכנסות לחיוב הקרוב</div></div></div>'+
+   '<div class="fld"><label for="cardLimit'+i+'">מסגרת</label><input id="cardLimit'+i+'" type="number" value="'+x.limit+'" oninput="tmpCards['+i+'].limit=+this.value"/></div></div>').join('');
 }
 function addCardRow(){const cl=['#6366f1','#f59e0b','#10b981','#06b6d4'];
   tmpCards.push({id:uid('card'),name:'',brand:'visa',last4:'',color:cl[tmpCards.length%4],chargeDay:10,cutoffDay:25,limit:0,active:true});paintCardRows();}
@@ -1736,9 +1763,24 @@ function importDB(inp){
   r.readAsText(f);
 }
 function resetAll(){
-  if(!confirm('פעולה זו תמחק את כל הנתונים לצמיתות. ודא שייצאת גיבוי.'))return;
+  if(!confirm('פעולה זו תמחק את כל הנתונים המקומיים במכשיר הזה לצמיתות (הענן לא נפגע — אם אתה מחובר, יימשך שחזור ממנו ברענון הבא). ודא שייצאת גיבוי אם אתה לא מחובר לענן.'))return;
   if(!confirm('בטוח? אין דרך חזרה.'))return;
   localStorage.removeItem(KEY);location.reload();
+}
+// מוחק את שורת הנתונים בענן (Supabase) של המשתמש המחובר + מתנתק + מנקה מקומי.
+// חשוב: זה מוחק את *הנתונים הפיננסיים*, לא את חשבון ה-Auth (מייל+סיסמה) עצמו —
+// מחיקת המשתמש מ-Supabase Auth דורשת service-role key בצד שרת, ולא ניתן לבצע
+// אותה בבטחה מקוד צד-לקוח (זה היה חור אבטחה חמור: כל משתמש היה יכול למחוק כל
+// חשבון). למחיקה מלאה של חשבון ה-Auth יש לפנות למפתח.
+async function deleteCloudData(){
+  if(!confirm('פעולה זו תמחק את כל הנתונים הפיננסיים שלך מהענן לצמיתות — מכל המכשירים המחוברים לאותו חשבון. הנתונים המקומיים במכשיר הזה יימחקו גם הם, ותנותק. אין דרך לשחזר.'))return;
+  if(!confirm('בטוח לגמרי? זו הפעולה הכי בלתי-הפיכה באפליקציה.'))return;
+  try{
+    if(CURRENT_USER)await sb.from('financeme_state').delete().eq('user_id',CURRENT_USER.id);
+  }catch(e){toast('שגיאה במחיקה מהענן — נסה שוב או פנה למפתח');return;}
+  try{await sb.auth.signOut();}catch(e){}
+  try{localStorage.removeItem(KEY);}catch(e){}
+  location.reload();
 }
 
 /* ============================================================
@@ -1758,9 +1800,9 @@ function drawSetup(){
   h+='<div class="steps">'+[0,1,2,3,4,5].map(i=>'<i class="'+(i<=sStep?'on':'')+'"></i>').join('')+'</div>';
   if(sStep===0){
     h+='<div class="box"><div class="stitle"><span>🏦</span> החשבון שלך</div>'+
-      '<div class="fld"><label>יתרה נוכחית בעו"ש</label><input id="i1" type="number" inputmode="decimal" value="'+sData.balance+'"/><div class="hint">הסכום שמופיע עכשיו באפליקציית הבנק</div></div>'+
-      '<div class="fld"><label>כרית ביטחון</label><input id="i2" type="number" value="'+sData.buffer+'"/><div class="hint">סכום שאתה לא רוצה לרדת מתחתיו — נשתמש בו להתראות</div></div>'+
-      '<div class="fld"><label>מסגרת אשראי (0 אם אין)</label><input id="i3" type="number" value="'+sData.overdraft+'"/></div>'+
+      '<div class="fld"><label for="i1">יתרה נוכחית בעו"ש</label><input id="i1" type="number" inputmode="decimal" value="'+sData.balance+'"/><div class="hint">הסכום שמופיע עכשיו באפליקציית הבנק</div></div>'+
+      '<div class="fld"><label for="i2">כרית ביטחון</label><input id="i2" type="number" value="'+sData.buffer+'"/><div class="hint">סכום שאתה לא רוצה לרדת מתחתיו — נשתמש בו להתראות</div></div>'+
+      '<div class="fld"><label for="i3">מסגרת אשראי (0 אם אין)</label><input id="i3" type="number" value="'+sData.overdraft+'"/></div>'+
       '<button class="btn" onclick="sNext()">המשך</button></div>';
   }else if(sStep===1){
     h+='<div class="box"><div class="stitle"><span>💳</span> כרטיסי האשראי</div>'+
@@ -1770,12 +1812,12 @@ function drawSetup(){
   }else if(sStep===2){
     const isVar=sData.incomeMode==='variable';
     h+='<div class="box"><div class="stitle"><span>💼</span> ההכנסה הקבועה</div>'+
-      '<div class="fld"><label>איך מתקבלת ההכנסה שלך?</label><div class="seg"><button id="sIncFixed" class="'+(isVar?'':'on')+'" onclick="sSetIncomeMode(\'fixed\')">משכורת קבועה</button><button id="sIncVar" class="'+(isVar?'on':'')+'" onclick="sSetIncomeMode(\'variable\')">משתנה כל חודש</button></div></div>'+
+      '<div class="fld"><label>איך מתקבלת ההכנסה שלך?</label><div class="seg" role="group" aria-label="איך מתקבלת ההכנסה שלך"><button id="sIncFixed" class="'+(isVar?'':'on')+'" onclick="sSetIncomeMode(\'fixed\')">משכורת קבועה</button><button id="sIncVar" class="'+(isVar?'on':'')+'" onclick="sSetIncomeMode(\'variable\')">משתנה כל חודש</button></div></div>'+
       (isVar
-        ?'<div class="fld"><label>בסביבות איזה יום בחודש היא מגיעה</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
+        ?'<div class="fld"><label for="i2">בסביבות איזה יום בחודש היא מגיעה</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
          '<div class="note" style="margin-bottom:16px">למשכורת לפי שעות או כל הכנסה שהסכום שלה משתנה — לא קובעים סכום מראש. כל חודש נזכיר לך בהתראות להזין את הסכום בפועל, בטאב "הכנסות".</div>'
-        :'<div class="fld"><label>משכורת חודשית נטו</label><input id="i1" type="number" inputmode="decimal" value="'+(sData.salary||'')+'" placeholder="0"/></div>'+
-         '<div class="fld"><label>יום כניסת המשכורת</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
+        :'<div class="fld"><label for="i1">משכורת חודשית נטו</label><input id="i1" type="number" inputmode="decimal" value="'+(sData.salary||'')+'" placeholder="0"/></div>'+
+         '<div class="fld"><label for="i2">יום כניסת המשכורת</label><input id="i2" type="number" min="1" max="31" value="'+sData.salaryDay+'"/></div>'+
          '<div class="note" style="margin-bottom:16px">מענק מילואים והכנסות חד-פעמיות תזין בנפרד — הן לא נכללות בבסיס החודשי בכוונה.</div>')+
       '<div class="btnrow"><button class="btn sec" onclick="sBack()">חזור</button><button class="btn" onclick="sNext()">המשך</button></div></div>';
   }else if(sStep===3){
@@ -1791,14 +1833,14 @@ function drawSetup(){
         '<div class="btnrow"><button class="btn sec" onclick="sSkipLoan()">אין לי, דלג</button><button class="btn" onclick="sData.wantLoan=true;drawSetup()">יש לי הלוואה</button></div>';
     }else{
       const L=sData.loan;
-      h+='<div class="fld"><label>שם ההלוואה</label><input id="i1" type="text" placeholder="משכנתא" value="'+esc(L.name)+'"/></div>'+
-        '<div class="row2"><div class="fld"><label>יתרת קרן נוכחית</label><input id="i2" type="number" inputmode="decimal" value="'+(L.principal||'')+'"/></div>'+
-        '<div class="fld"><label>יום חיוב בחודש</label><input id="i3" type="number" min="1" max="31" value="'+L.payDay+'"/></div></div>'+
-        '<div class="fld"><label>סוג ריבית</label><div class="seg"><button id="sLoanPrime" class="'+(L.type==='prime'?'on':'')+'" onclick="sSetLoanType(\'prime\')">פריים</button><button id="sLoanFixed" class="'+(L.type==='fixed'?'on':'')+'" onclick="sSetLoanType(\'fixed\')">קבועה</button></div></div>'+
+      h+='<div class="fld"><label for="i1">שם ההלוואה</label><input id="i1" type="text" placeholder="משכנתא" value="'+esc(L.name)+'"/></div>'+
+        '<div class="row2"><div class="fld"><label for="i2">יתרת קרן נוכחית</label><input id="i2" type="number" inputmode="decimal" value="'+(L.principal||'')+'"/></div>'+
+        '<div class="fld"><label for="i3">יום חיוב בחודש</label><input id="i3" type="number" min="1" max="31" value="'+L.payDay+'"/></div></div>'+
+        '<div class="fld"><label>סוג ריבית</label><div class="seg" role="group" aria-label="סוג ריבית"><button id="sLoanPrime" class="'+(L.type==='prime'?'on':'')+'" onclick="sSetLoanType(\'prime\')">פריים</button><button id="sLoanFixed" class="'+(L.type==='fixed'?'on':'')+'" onclick="sSetLoanType(\'fixed\')">קבועה</button></div></div>'+
         (L.type==='prime'
-          ?'<div class="fld"><label>מרווח מריבית ב"י (%)</label><input id="i4" type="number" step="0.01" value="'+L.margin+'"/><div class="hint">שלילי = הנחה, חיובי = תוספת</div></div>'
-          :'<div class="fld"><label>ריבית שנתית (%)</label><input id="i4" type="number" step="0.01" value="'+(L.fixedRate||0)+'"/></div>')+
-        '<div class="fld"><label>תקופה שנותרה (חודשים)</label><input id="i5" type="number" min="1" value="'+L.termMonths+'"/></div>'+
+          ?'<div class="fld"><label for="i4">מרווח מריבית ב"י (%)</label><input id="i4" type="number" step="0.01" value="'+L.margin+'"/><div class="hint">שלילי = הנחה, חיובי = תוספת</div></div>'
+          :'<div class="fld"><label for="i4">ריבית שנתית (%)</label><input id="i4" type="number" step="0.01" value="'+(L.fixedRate||0)+'"/></div>')+
+        '<div class="fld"><label for="i5">תקופה שנותרה (חודשים)</label><input id="i5" type="number" min="1" value="'+L.termMonths+'"/></div>'+
         '<div class="btnrow"><button class="btn sec" onclick="sCancelLoanForm()">בטל</button><button class="btn" onclick="sNext()">המשך</button></div>';
     }
     h+='</div>';
@@ -1809,10 +1851,10 @@ function drawSetup(){
         '<div class="btnrow"><button class="btn sec" onclick="sSkipGoal()">אין לי כרגע, דלג</button><button class="btn" onclick="sData.wantGoal=true;drawSetup()">יש לי יעד</button></div>';
     }else{
       const G=sData.goal;
-      h+='<div class="fld"><label>שם היעד</label><input id="i1" type="text" placeholder="טיול לחו״ל" value="'+esc(G.name)+'"/></div>'+
-        '<div class="row2"><div class="fld"><label>סכום היעד</label><input id="i2" type="number" inputmode="decimal" value="'+(G.target||'')+'"/></div>'+
-        '<div class="fld"><label>הפרשה חודשית</label><input id="i3" type="number" inputmode="decimal" value="'+(G.monthlyPlan||'')+'"/></div></div>'+
-        '<div class="fld"><label>כבר נצבר (0 אם מתחילים מאפס)</label><input id="i4" type="number" inputmode="decimal" value="'+(G.saved||'')+'"/></div>'+
+      h+='<div class="fld"><label for="i1">שם היעד</label><input id="i1" type="text" placeholder="טיול לחו״ל" value="'+esc(G.name)+'"/></div>'+
+        '<div class="row2"><div class="fld"><label for="i2">סכום היעד</label><input id="i2" type="number" inputmode="decimal" value="'+(G.target||'')+'"/></div>'+
+        '<div class="fld"><label for="i3">הפרשה חודשית</label><input id="i3" type="number" inputmode="decimal" value="'+(G.monthlyPlan||'')+'"/></div></div>'+
+        '<div class="fld"><label for="i4">כבר נצבר (0 אם מתחילים מאפס)</label><input id="i4" type="number" inputmode="decimal" value="'+(G.saved||'')+'"/></div>'+
         '<div class="btnrow"><button class="btn sec" onclick="sCancelGoalForm()">בטל</button><button class="btn" onclick="finishSetup()">סיים והתחל</button></div>';
     }
     h+='</div>';
@@ -1825,8 +1867,8 @@ function sFixedListHTML(){
     '<div class="cardrow" style="padding:12px 14px"><label style="display:flex;align-items:center;gap:10px;cursor:pointer">'+
       '<input type="checkbox" style="width:auto" '+(f.checked?'checked':'')+' onchange="sToggleFixed('+i+',this.checked)"/>'+
       '<span style="font-size:17px">'+f.icon+'</span><span style="font-weight:700;font-size:13.5px;flex:1">'+esc(f.name)+'</span></label>'+
-      (f.checked?'<div class="row2" style="margin-top:10px"><div class="fld"><label>סכום חודשי</label><input type="number" inputmode="decimal" placeholder="0" value="'+(f.amount||'')+'" oninput="sData.fixedExpenses['+i+'].amount=+this.value"/></div>'+
-        '<div class="fld"><label>יום חיוב</label><input type="number" min="1" max="31" value="'+f.day+'" oninput="sData.fixedExpenses['+i+'].day=+this.value"/></div></div>':'')+
+      (f.checked?'<div class="row2" style="margin-top:10px"><div class="fld"><label for="fixAmt'+i+'">סכום חודשי</label><input id="fixAmt'+i+'" type="number" inputmode="decimal" placeholder="0" value="'+(f.amount||'')+'" oninput="sData.fixedExpenses['+i+'].amount=+this.value"/></div>'+
+        '<div class="fld"><label for="fixDay'+i+'">יום חיוב</label><input id="fixDay'+i+'" type="number" min="1" max="31" value="'+f.day+'" oninput="sData.fixedExpenses['+i+'].day=+this.value"/></div></div>':'')+
     '</div>').join('');
 }
 function sToggleFixed(i,checked){sData.fixedExpenses[i].checked=checked;el('sFixedList').innerHTML=sFixedListHTML();}
