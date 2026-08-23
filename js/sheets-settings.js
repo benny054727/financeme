@@ -14,9 +14,36 @@ function openSettings(){
      '<div class="etag">ייצוא/ייבוא · איפוס הכל</div></div></div>');
 }
 function openAccountSettings(){
+  // שם פרטי/משפחה נשמרים ב-user_metadata של Supabase Auth (לא ב-DB.settings) —
+  // זה מידע על החשבון עצמו (מסונכרן אוטומטית לכל מכשיר עם ההתחברות, לא צריך
+  // לעבור גם דרך financeme_state בענן בנפרד)
+  const meta=(CURRENT_USER&&CURRENT_USER.user_metadata)||{};
   sheet('חשבון',
    '<div class="note" style="margin-bottom:18px">מחובר כ-'+esc(CURRENT_USER?CURRENT_USER.email:'')+' · הנתונים מסונכרנים לענן ונגישים מכל מכשיר.</div>'+
-   '<button class="btn sec" onclick="doSignOut()">התנתק</button>',null,'openSettings');
+   '<div class="row2"><div class="fld"><label for="acFirst">שם פרטי</label><input id="acFirst" type="text" value="'+esc(meta.first_name||'')+'"/></div>'+
+   '<div class="fld"><label for="acLast">שם משפחה</label><input id="acLast" type="text" value="'+esc(meta.last_name||'')+'"/></div></div>'+
+   '<button class="btn sec" onclick="saveAccountName()">שמור שם</button>'+
+   '<div class="stitle" style="margin-top:24px"><span>🔒</span> שינוי סיסמה</div>'+
+   '<div class="fld"><label for="acPw1">סיסמה חדשה</label><input id="acPw1" type="password" autocomplete="new-password" placeholder="לפחות 8 תווים"/></div>'+
+   '<div class="fld"><label for="acPw2">אימות סיסמה חדשה</label><input id="acPw2" type="password" autocomplete="new-password"/></div>'+
+   '<button class="btn sec" onclick="changePassword()">עדכן סיסמה</button>'+
+   '<button class="btn sec" style="margin-top:22px" onclick="doSignOut()">התנתק</button>',null,'openSettings');
+}
+async function saveAccountName(){
+  const first=el('acFirst').value.trim(),last=el('acLast').value.trim();
+  const {data,error}=await sb.auth.updateUser({data:{first_name:first,last_name:last}});
+  if(error)return toast('שגיאה בשמירת השם: '+error.message);
+  if(data&&data.user)CURRENT_USER=data.user;
+  toast('השם נשמר');render();
+}
+async function changePassword(){
+  const p1=el('acPw1').value,p2=el('acPw2').value;
+  if(!p1||p1.length<8)return toast('הסיסמה חייבת להיות לפחות 8 תווים');
+  if(p1!==p2)return toast('הסיסמאות לא תואמות');
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error)return toast('שגיאה בעדכון סיסמה: '+error.message);
+  el('acPw1').value='';el('acPw2').value='';
+  toast('הסיסמה עודכנה ✓');
 }
 function openFinancialSettings(){
   const S=DB.settings;
