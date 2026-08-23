@@ -99,37 +99,34 @@ function expenseTrendChart(){
   const expVals=months.map(y=>CALC.month(y).out);
   const savVals=months.map(y=>CALC.month(y).saving);
   const mx=Math.max(...expVals,...savVals,1);
-  // שתי שורות הסכומים קבועות במקום למעלה — לא "צפות" מעל כל עמודה לפי הגובה
-  // שלה (זה מה שגרם למספרים להיראות לא מיושרים/מתנגשים בין חודשים שונים).
-  // העמודות עצמן גדלות מלמטה עד גובה מקסימלי שנשאר תמיד מתחת לשורות הסכום.
-  const W=320,H=158,expLblY=16,savLblY=32,baseY=124,maxH=56;
+  // הסכומים (החודש הנוכחי) מוצגים כטקסט HTML רגיל בשורת המקרא — לא כ-<text> בתוך
+  // ה-SVG. זה גם הרבה יותר פשוט ליישור (שורה אחת, שני span עם gap), וגם פותר
+  // לגמרי את הבעיה הקודמת: כשה-SVG נמתח לפי width:100%/height:auto על viewBox
+  // עם יחס קבוע, כל מה שבפנים (כולל טקסט) היה "תופח" בכרטיס רחב. עכשיו שאין
+  // יותר טקסט בתוך ה-SVG עצמו (רק העמודות ותוויות החודשים הקטנות), אפשר להחזיר
+  // אותו ל-width:100% מלא בלי לחשוש.
+  const W=320,H=120,baseY=84,maxH=54;
   const slotW=W/6,barW=13,barGap=4,groupW=barW*2+barGap,groupOff=(slotW-groupW)/2;
   let bars='<g font-family="Heebo">';
   bars+='<line x1="2" y1="'+baseY+'" x2="'+(W-2)+'" y2="'+baseY+'" stroke="#eef1f6" stroke-width="1"/>';
   months.forEach((y,i)=>{
     const isCur=y===curYM();
-    const gx=slotW*i+groupOff,cx1=gx+barW/2,cx2=gx+barW+barGap+barW/2;
+    const gx=slotW*i+groupOff;
     const ev=expVals[i],eh=mx?Math.round((ev/mx)*maxH):0;
     const sv=savVals[i],sh=mx?Math.round((sv/mx)*maxH):0;
     const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed';
     const mLbl=isCur?'#2563eb':'#94a3b8';
     bars+=(eh?'<rect x="'+gx+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="4" fill="'+expFill+'"/>':'')+
       (sh?'<rect x="'+(gx+barW+barGap)+'" y="'+(baseY-sh)+'" width="'+barW+'" height="'+sh+'" rx="4" fill="'+savFill+'"/>':'')+
-      (ev>0?'<text x="'+cx1+'" y="'+expLblY+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#e5383b">'+fmt(ev)+'</text>':'')+
-      (sv>0?'<text x="'+cx2+'" y="'+savLblY+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#7c3aed">'+fmt(sv)+'</text>':'')+
       '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
       (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="#94a3b8">עד כה</text>':'');
   });
   bars+='</g>';
-  const legend='<span class="mini" style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2.5px;background:#e5383b;display:inline-block"></span>הוצאות</span>'+
-    '<span class="mini" style="display:inline-flex;align-items:center;gap:5px;margin-inline-start:14px"><span style="width:8px;height:8px;border-radius:2.5px;background:#7c3aed;display:inline-block"></span>חיסכון</span>';
-  // max-width קבוע (לא width:100% טהור): בלי זה, ב-viewBox עם יחס רוחב-גובה קבוע,
-  // "height:auto" גורם לגובה בפועל (וכל מה שבפנים, כולל טקסט) לתפוח באותה מידה
-  // שהרוחב תופח — בכרטיס רחב מאוד (למשל ברשת הדו-טורית של הדסקטופ), הסכומים היו
-  // יוצאים ענקיים. אותו עיקרון בדיוק שכבר קיים בעוגה (.dsvg — גודל קבוע, לא %).
+  const legend='<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2.5px;background:#e5383b;display:inline-block;flex:none"></span><span class="mini">הוצאות</span><b style="font-size:13px;color:#e5383b">'+fmt(expVals[expVals.length-1])+'</b></span>'+
+    '<span style="display:inline-flex;align-items:center;gap:6px;margin-inline-start:16px"><span style="width:9px;height:9px;border-radius:2.5px;background:#7c3aed;display:inline-block;flex:none"></span><span class="mini">חיסכון</span><b style="font-size:13px;color:#7c3aed">'+fmt(savVals[savVals.length-1])+'</b></span>';
   return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות וחיסכון — 6 חודשים אחרונים</div>'+
-    '<div style="margin-bottom:6px">'+legend+'</div>'+
-    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:360px;height:auto;display:block;margin:0 auto">'+bars+'</svg></div>';
+    '<div style="display:flex;flex-wrap:wrap;margin-bottom:10px">'+legend+'</div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';
 }
 function updAlertDots(wrap){
   const slides=wrap.querySelectorAll('.alertSlide');
