@@ -1,12 +1,27 @@
 function vExpenses(){
   const y=selYM||curYM(),m=CALC.month(y);
-  let h='<div class="mbar">';
-  for(let i=5;i>=0;i--){const mm=addM(curYM(),-i);h+='<button class="mbtn '+(mm===y?'active':'')+'" onclick="selYM=\''+mm+'\';render()">'+ymShort(mm)+(i===0?'':'')+'</button>';}
+  // בורר שנה+חודש: קודם היה בורר "6 חודשים אחרונים" קבוע (יחסית להיום, לא
+  // לשנה שבחרת) — עכשיו יש ניווט שנה (‹ / ›) וכל 12 החודשים שלה מתחת, נגללים
+  // אופקית. אי אפשר לנווט לשנה עתידית, וחודשים עתידיים בשנה הנוכחית לא
+  // מוצגים בכלל (אין להם נתונים עדיין).
+  const pickYear=+y.slice(0,4),curYear=+curYM().slice(0,4);
+  let h='<div class="ybar"><button class="ynav" onclick="shiftPickerYear(-1)" aria-label="שנה קודמת">›</button>'+
+    '<div class="ylbl">'+pickYear+'</div>'+
+    '<button class="ynav" onclick="shiftPickerYear(1)" '+(pickYear>=curYear?'disabled':'')+' aria-label="שנה הבאה">‹</button></div>';
+  h+='<div class="mbar">';
+  for(let mo=1;mo<=12;mo++){
+    const mm=pickYear+'-'+String(mo).padStart(2,'0');
+    if(mm>curYM())break;
+    h+='<button class="mbtn '+(mm===y?'active':'')+'" onclick="selYM=\''+mm+'\';render()">'+MON_S[mo-1]+'</button>';
+  }
   h+='</div>';
-  h+='<div class="seg"><button class="'+(expTab==='fixed'?'on':'')+'" onclick="expTab=\'fixed\';render()">קבועות · '+fmt(m.fixed)+'</button>'+
-     '<button class="'+(expTab==='variable'?'on':'')+'" onclick="expTab=\'variable\';render()">משתנות · '+fmt(m.variable)+'</button>'+
-     '<button class="'+(expTab==='saving'?'on':'')+'" onclick="expTab=\'saving\';render()">חיסכון · '+fmt(m.saving)+'</button>'+
-     '<button class="'+(expTab==='income'?'on':'')+'" onclick="expTab=\'income\';render()">הכנסות · '+fmt(m.income)+'</button></div>';
+  // כרטיסים ממוסגרים (כמו ה-KPI בדף הבית) במקום סגמנט "פיל" שרק הפעיל בו בולט —
+  // כל טאב (קבועות/משתנות/חיסכון/הכנסות) מקבל מסגרת+צל משלו, כדי שיהיה ברור
+  // שאלה 4 תצוגות נפרדות ולא רק כיתובים בתוך פס אחד
+  h+='<div class="tabcards"><button class="'+(expTab==='fixed'?'on':'')+'" onclick="expTab=\'fixed\';render()">קבועות<span class="segamt">'+fmt(m.fixed)+'</span></button>'+
+     '<button class="'+(expTab==='variable'?'on':'')+'" onclick="expTab=\'variable\';render()">משתנות<span class="segamt">'+fmt(m.variable)+'</span></button>'+
+     '<button class="'+(expTab==='saving'?'on':'')+'" onclick="expTab=\'saving\';render()">חיסכון<span class="segamt">'+fmt(m.saving)+'</span></button>'+
+     '<button class="'+(expTab==='income'?'on':'')+'" onclick="expTab=\'income\';render()">הכנסות<span class="segamt">'+fmt(m.income)+'</span></button></div>';
   const prev=CALC.month(addM(y,-1));
   const cur=m[expTab]||0,pv=prev[expTab]||0;
   if(pv>0){const dl=((cur/pv)-1)*100;
@@ -75,6 +90,16 @@ function vExpenses(){
     h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openVariableIncome()">+ הוסף הכנסה משתנה</button></div>';
   }
   return h;
+}
+/* מעביר את selYM שנה אחורה/קדימה (dir=-1/1), שומר על אותו חודש — למשל
+   מ-2025-11 ל-2026-11. לא מאפשר לחרוג לעתיד: אם השנה החדשה+אותו חודש
+   כבר אחרי החודש הנוכחי, קופצים בחזרה לחודש הנוכחי במקום להראות עתיד. */
+function shiftPickerYear(dir){
+  const y=selYM||curYM();
+  const year=+y.slice(0,4),month=y.slice(5,7);
+  const candidate=(year+dir)+'-'+month;
+  selYM=candidate>curYM()?curYM():candidate;
+  render();
 }
 function delRec(id){
   const r=DB.recurring.find(x=>x.id===id);if(!r)return;

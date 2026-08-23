@@ -146,7 +146,12 @@ main{max-width:900px;margin:-58px auto 0;padding:0 14px;position:relative;z-inde
 .dlbl{display:flex;align-items:center;color:var(--muted)}
 .dval{font-weight:800;font-size:13px}
 
-/* ---------- month bar / tabs ---------- */
+/* ---------- year/month picker ---------- */
+.ybar{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px}
+.ynav{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.ynav:hover:not(:disabled){background:var(--bg);color:var(--balance);border-color:var(--balance)}
+.ynav:disabled{opacity:.32;cursor:default}
+.ylbl{font-size:16px;font-weight:900;color:var(--text);letter-spacing:-.3px;min-width:46px;text-align:center}
 .mbar{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none}
 .mbar::-webkit-scrollbar{display:none}
 .mbtn{flex-shrink:0;padding:6px 15px;border-radius:99px;border:1px solid var(--border);background:var(--surface);font-size:12.5px;cursor:pointer;color:var(--muted);transition:all .18s}
@@ -154,6 +159,16 @@ main{max-width:900px;margin:-58px auto 0;padding:0 14px;position:relative;z-inde
 .seg{display:flex;background:#f1f5f9;border-radius:12px;padding:4px;margin-bottom:16px}
 .seg button{flex:1;padding:8px;border:none;background:transparent;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
 .seg button.on{background:#fff;color:var(--text);font-weight:800;box-shadow:0 2px 8px rgba(15,23,42,.08)}
+/* ---------- tabcards (קבועות/משתנות/חיסכון/הכנסות בדף הוצאות) ---------- */
+/* class נפרדת מ-.seg בכוונה: .seg משמש במקומות אחרים עם 2 כפתורים ומצפה
+   לסגנון "פיל" קומפקטי (רקע אפור, רק הפעיל בולט) — כאן, עם 4 טאבים, כל
+   אחד הוא כרטיס ממוסגר בפני עצמו (כמו ה-KPI בדף הבית: .kcard), כדי שיהיה
+   ברור מיד שאלה 4 תצוגות נפרדות ולא רק כיתובים בתוך פס אחד */
+.tabcards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.tabcards button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border:1.5px solid var(--border);background:var(--surface);border-radius:14px;font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;box-shadow:var(--shadow);transition:all .15s}
+.tabcards button .segamt{font-size:13.5px;font-weight:900;color:var(--text)}
+.tabcards button.on{border-color:var(--balance);background:rgba(37,99,235,.06);color:var(--balance)}
+.tabcards button.on .segamt{color:var(--balance)}
 
 /* ---------- goals ---------- */
 .goal{border:1px solid var(--border);border-radius:16px;padding:15px;margin-bottom:12px}
@@ -305,7 +320,7 @@ nav .spacer{pointer-events:none;visibility:hidden}
      (בדיוק הפער שדווח). span:all מוציא אותן מהרשת הדו-טורית לגמרי — נראות
      כמו כותרת עמוד רגילה, מעל שתי העמודות, ואז שתי העמודות מתחילות באותו
      גובה בדיוק עם הכרטיס הממשי הראשון שלהן. */
-  .hgreet,.mbar,.seg,.ccgrid{column-span:all}
+  .hgreet,.ybar,.mbar,.seg,.tabcards,.ccgrid{column-span:all}
   /* פס ניווט אופקי מלא-רוחב, יושב כשורה העליונה ביותר על רקע ההדר הכחול.
      position:fixed (לא absolute) כדי שיישאר קבוע למעלה גם בגלילה — המשתמש
      ביקש את זה מפורשות: לא לצטרך לגלול חזרה למעלה כדי לעבור בין דפים.
