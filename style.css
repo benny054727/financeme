@@ -271,13 +271,13 @@ nav .spacer{pointer-events:none;visibility:hidden}
      גם צבע הרקע שלהם משתנה: הסגנון המקורי (זכוכית לבנה שקופה על כחול)
      היה נעלם כמעט לגמרי על רקע לבן, אז כאן הם מקבלים רקע/מסגרת בהירים
      שנראים נכון על .surface לבן.
-     top/left שליליים ומחושבים: .hbtns יושב בתוך .hinner, שכבר יש לה
-     position:relative משלה (לצורך ה-stacking מול הבלובים המעוצבים בהדר) —
-     כלומר .hbtns ממוקם ביחס ל-.hinner, לא ביחס ל-header. .hinner מתחילה
-     בדיוק במרווח ה-padding-top/left של header (כאן 64px+safe / 20px),
-     אז כדי שהאייקונים ינחתו במיקום מוחלט הרצוי בעמוד (סביב 10px מלמעלה,
-     16px מהקצה השמאלי — בתוך הרצועה של nav) מחסרים את ה-offset הזה. */
-  .hbtns{position:absolute;top:calc(-54px - env(safe-area-inset-top,0px));left:-4px;z-index:2;gap:8px}
+     position:fixed (לא absolute יחסית ל-.hinner): מאז ש-nav הפך ל-fixed
+     (דביק בגלילה), חייבים גם את האייקונים האלה fixed באותו אופן — אחרת
+     בגלילה נשארה תקועה כל הרצועה הלבנה למעלה אבל האייקונים היו נגללים
+     איתה header (הם עדיין בתוך .hinner ב-DOM) ונעלמים. עם fixed זה כבר
+     לא תלוי במיקום הגלילה של .hinner בכלל — פשוט קואורדינטת מסך קבועה,
+     בדיוק כמו nav עצמו. */
+  .hbtns{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:16px;z-index:21;gap:8px}
   #syncBadge,.hbtn{background:var(--bg);border:1px solid var(--border)}
   /* גופנים מעט גדולים יותר בכרטיסים — הכרטיסים עצמם רחבים יותר עכשיו,
      והתוכן צריך להתאים לגודל החדש במקום להיראות קטן/אבוד באמצע כרטיס גדול */
@@ -296,17 +296,24 @@ nav .spacer{pointer-events:none;visibility:hidden}
      כמו כותרת עמוד רגילה, מעל שתי העמודות, ואז שתי העמודות מתחילות באותו
      גובה בדיוק עם הכרטיס הממשי הראשון שלהן. */
   .hgreet,.mbar,.seg,.ccgrid{column-span:all}
-  /* פס ניווט אופקי מלא-רוחב, יושב כשורה העליונה ביותר על רקע ההדר הכחול
-     (position:absolute;top:0;left:0;right:0 — לא כרטיס צף שחופף לגבול עם
-     התוכן כמו בגרסה הקודמת). z-index נמוך מזה של .hbtns כדי שסמלי
+  /* פס ניווט אופקי מלא-רוחב, יושב כשורה העליונה ביותר על רקע ההדר הכחול.
+     position:fixed (לא absolute) כדי שיישאר קבוע למעלה גם בגלילה — המשתמש
+     ביקש את זה מפורשות: לא לצטרך לגלול חזרה למעלה כדי לעבור בין דפים.
+     מכיוון שממילא היה ממוקם ב-top:0 של כל הדף (לא ביחס לתוכן שגולל),
+     absolute→fixed לא משנה שום דבר במראה במצב לא-גלול — רק מוסיף את
+     ההתנהגות הדביקה בגלילה. z-index נמוך מזה של .hbtns כדי שסמלי
      ההגדרות/סנכרון יצטיירו מעליו בקצה השמאלי. פריטי הניווט מתקבצים מהצד
      הימני (RTL, justify-content:flex-start) ומשאירים את הצד השמאלי פנוי
      בשביל האייקונים. */
-  nav{position:absolute;top:0;left:0;right:0;bottom:auto;width:auto;
+  /* z-index:20 (לא 1): main{} מקבלת z-index:10 כברירת מחדל, כדי לצייר מעל
+     הבלובים המעוצבים בהדר. עכשיו ש-nav דביק (fixed) וכרטיסים מ-main נגללים
+     מתחתיו, הוא חייב לצייר מעליהם כשהם חופפים — אחרת ה-z-index הגבוה יותר
+     של main היה גורם לכרטיסים לכסות את הרצועה הדביקה בזמן גלילה. */
+  nav{position:fixed;top:0;left:0;right:0;bottom:auto;width:auto;
     display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
     background:var(--surface);backdrop-filter:none;border-radius:0;
     box-shadow:0 2px 14px rgba(15,23,42,.14);margin:0;padding:9px 16px;gap:4px;
-    border-top:none;z-index:1}
+    border-top:none;z-index:20}
   nav .spacer{display:none}
   nav button{flex:none;flex-direction:row;padding:9px 14px;border-radius:11px;gap:7px;font-size:13px;font-weight:600}
   nav button .ni{font-size:17px}
