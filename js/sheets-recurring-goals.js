@@ -27,16 +27,16 @@ function recMethodDayHTML(r){
     DB.cards.map(c=>'<option value="'+c.id+'" '+(r&&r.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'+
     '<div class="fld"><label for="rDay">יום בחודש</label><input id="rDay" type="number" min="1" max="31" value="'+(r?r.dayOfMonth:5)+'"/></div></div>';
 }
-function recAmtSectionHTML(r,isInst){
-  if(recDir==='in')return '<div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r?r.amount:'')+'"/></div>';
+function recAmtSectionHTML(r,isInst,presetAmt){
+  if(recDir==='in')return '<div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r?r.amount:(presetAmt||''))+'"/></div>';
   return '<div class="fld"><label>סוג הוראה</label><div class="seg" role="group" aria-label="סוג הוראה"><button id="rTypeReg" class="'+(isInst?'':'on')+'" onclick="setRecType(false)">רגיל · כל חודש</button><button id="rTypeInst" class="'+(isInst?'on':'')+'" onclick="setRecType(true)">תשלומים · מספר קבוע</button></div></div>'+
-   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:'')+'"/></div></div>'+
+   '<div id="rRegWrap" style="display:'+(isInst?'none':'')+'"><div class="fld"><label for="rAmt">סכום חודשי</label><input id="rAmt" type="number" inputmode="decimal" placeholder="0" value="'+(r&&!isInst?r.amount:(presetAmt||''))+'"/></div></div>'+
    '<div id="rInstWrap" style="display:'+(isInst?'':'none')+'"><div class="row2"><div class="fld"><label for="rTotal">סכום כולל</label><input id="rTotal" type="number" inputmode="decimal" placeholder="0" value="'+(isInst?Math.round(r.amount*r.installmentTotal*100)/100:'')+'"/></div>'+
      '<div class="fld"><label for="rCount">מספר תשלומים</label><input id="rCount" type="number" min="2" value="'+(isInst?r.installmentTotal:12)+'"/></div></div>'+
      '<div class="mini" id="rInstPrev" style="margin-bottom:4px"></div>'+
      (isInst?'<div class="mini">כבר בוצעו '+monthsBetweenYM(r.startDate,curYM())+' מתוך '+r.installmentTotal+' תשלומים</div>':'')+'</div>';
 }
-function openRecurring(editId,presetCatId,presetDir){
+function openRecurring(editId,presetCatId,presetDir,presetGoalId,presetAmt){
   const r=editId?DB.recurring.find(x=>x.id===editId):null;
   recDir=r?r.direction:(presetDir||'out');
   const isInst=r?!!r.installmentTotal:false;
@@ -53,10 +53,10 @@ function openRecurring(editId,presetCatId,presetDir){
    '<div class="fld" id="rIncTypeWrap" style="display:'+(recDir==='in'?'':'none')+'"><label for="rIncType">סוג הכנסה</label><select id="rIncType">'+
      [['salary','משכורת'],['reserve','מענק מילואים'],['other','אחר']].map(function(p){return '<option value="'+p[0]+'" '+((r?r.incomeType===p[0]:p[0]==='salary')?'selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></div>'+
    (DB.goals.length?'<div class="fld" id="rGoalWrap" style="display:'+(recDir==='in'?'none':'')+'"><label for="rGoal">קשר ליעד חיסכון (אופציונלי)</label><select id="rGoal"><option value="">ללא — לא קשור ליעד</option>'+
-     DB.goals.map(g=>'<option value="'+g.id+'" '+(r&&r.goalId===g.id?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>'+
+     DB.goals.map(g=>'<option value="'+g.id+'" '+((r?r.goalId===g.id:presetGoalId===g.id)?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>'+
      '<div class="hint">אם ההוראה היא הפקדה לחיסכון — קשר אותה ליעד כדי שהוא יתעדכן אוטומטית בכל חיוב</div></div>':'')+
    '<div id="rMethodDaySection">'+recMethodDayHTML(r)+'</div>'+
-   '<div id="rAmtSection">'+recAmtSectionHTML(r,isInst)+'</div>'+
+   '<div id="rAmtSection">'+recAmtSectionHTML(r,isInst,presetAmt)+'</div>'+
    '<button class="btn" style="margin-top:8px" onclick="saveRec('+(r?"'"+r.id+"'":'null')+')">שמור</button>'+
    (r?'<button class="btn sec" style="margin-top:10px" onclick="toggleRec(\''+r.id+'\')">'+(r.active?'השהה הוראה':'הפעל מחדש')+'</button>':'')+
    (r?'<button class="btn dgr" style="margin-top:10px" onclick="delRec(\''+r.id+'\')">מחק</button>':''),
@@ -189,9 +189,11 @@ function openGoal(type){
    '<div class="fld"><label for="gName">שם</label><input id="gName" type="text" placeholder="'+(type==='fund'?'קרן עתיד':'טיול לחו"ל')+'"/></div>'+
    '<div class="row2"><div class="fld"><label for="gTgt">'+(type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="gTgt" type="number" inputmode="decimal" placeholder="0"/></div>'+
    '<div class="fld"><label for="gPlan">הפרשה חודשית</label><input id="gPlan" type="number" inputmode="decimal" placeholder="0"/></div></div>'+
+   '<div class="hint" style="margin:-8px 0 12px">זה רק יעד תכנון — לא יוצר הפקדה אוטומטית מהעו"ש. כדי שכל חודש באמת יירד סכום קבוע, מוסיפים אחר כך "הוראת קבע" ומקשרים אותה ליעד הזה.</div>'+
    (type==='personal'?'<div class="fld"><label for="gDate">תאריך יעד</label><input id="gDate" type="date"/></div>':'')+
    '<div class="row2"><div class="fld"><label for="gSaved">כבר נצבר</label><input id="gSaved" type="number" inputmode="decimal" value="0"/></div>'+
    '<div class="fld"><label for="gSavedDate">תאריך ההפקדה הראשונית</label><input id="gSavedDate" type="date" value="'+iso(today())+'"/></div></div>'+
+   '<div class="hint" style="margin:-8px 0 12px">שני השדות האלה הם רק נקודת פתיחה (למשל כסף שכבר הפרשת בעבר) — לא יוצרים תנועה ולא משנים את יתרת העו"ש.</div>'+
    '<button class="btn" onclick="saveGoal(\''+type+'\')">שמור</button>');
 }
 function saveGoal(type){
@@ -210,14 +212,23 @@ function saveGoal(type){
    הראשונית (createdDate — נקודת העיגון של גרף הצמיחה, ראו goalGrowthChart) */
 function openGoalEdit(id){
   const g=DB.goals.find(x=>x.id===id);if(!g)return;
+  // האם כבר יש הוראת קבע פעילה שמקושרת ליעד הזה? אם כן, אין טעם להציע ליצור עוד אחת —
+  // מציגים קישור לעריכת הקיימת במקום
+  const linkedRec=DB.recurring.find(x=>x.goalId===id&&x.active);
+  const savingCat=DB.categories.find(c=>c.kind==='saving');
   sheet('עריכת '+(g.type==='fund'?'קרן':'יעד'),
    '<div class="fld"><label for="geName">שם</label><input id="geName" type="text" value="'+esc(g.name)+'"/></div>'+
    '<div class="row2"><div class="fld"><label for="geTgt">'+(g.type==='fund'?'יעד (אופציונלי)':'סכום היעד')+'</label><input id="geTgt" type="number" inputmode="decimal" value="'+(g.targetAmount||'')+'"/></div>'+
    '<div class="fld"><label for="gePlan">הפרשה חודשית</label><input id="gePlan" type="number" inputmode="decimal" value="'+(g.monthlyPlan||'')+'"/></div></div>'+
+   '<div class="hint" style="margin:-8px 0 12px">זה רק יעד תכנון — לא יוצר הפקדה אוטומטית מהעו"ש (ראו למטה).</div>'+
    (g.type==='personal'?'<div class="fld"><label for="geDate">תאריך יעד</label><input id="geDate" type="date" value="'+(g.targetDate||'')+'"/></div>':'')+
    '<div class="row2"><div class="fld"><label for="geSaved">סה"כ נצבר כרגע</label><input id="geSaved" type="number" inputmode="decimal" value="'+g.saved+'"/></div>'+
    '<div class="fld"><label for="geSavedDate">תאריך ההפקדה הראשונית</label><input id="geSavedDate" type="date" value="'+(g.createdDate||iso(today()))+'"/></div></div>'+
-   '<button class="btn" onclick="saveGoalEdit(\''+id+'\')">שמור</button>');
+   '<div class="hint" style="margin:-8px 0 12px">שני השדות האלה הם רק נקודת פתיחה — לא יוצרים תנועה ולא משנים את יתרת העו"ש.</div>'+
+   '<button class="btn" onclick="saveGoalEdit(\''+id+'\')">שמור</button>'+
+   (linkedRec?
+     '<div class="note" style="margin-top:14px">🔁 מקושרת אליו הוראת קבע פעילה ("'+esc(linkedRec.name)+'", '+fmt(linkedRec.amount)+'/חודש) — היא זו שבאמת מפקידה כל חודש.<button class="lnk" style="display:block;margin-top:6px" onclick="openRecurring(\''+linkedRec.id+'\')">ערוך אותה</button></div>'
+     :'<div class="note" style="margin-top:14px">כדי שכל חודש באמת יירד סכום קבוע לחיסכון הזה — צריך הוראת קבע מקושרת (לא רק "הפרשה חודשית" למעלה, שהיא רק תכנון).<button class="lnk" style="display:block;margin-top:6px" onclick="openRecurring(null,\''+(savingCat?savingCat.id:'')+'\',\'out\',\''+id+'\','+(g.monthlyPlan||0)+')">+ צור הוראת קבע לחיסכון הזה</button></div>'));
 }
 function saveGoalEdit(id){
   const g=DB.goals.find(x=>x.id===id);if(!g)return;
