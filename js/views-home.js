@@ -115,17 +115,21 @@ function expenseTrendChart(){
     const mLbl=isCur?'#2563eb':'#94a3b8';
     bars+=(eh?'<rect x="'+gx+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="4" fill="'+expFill+'"/>':'')+
       (sh?'<rect x="'+(gx+barW+barGap)+'" y="'+(baseY-sh)+'" width="'+barW+'" height="'+sh+'" rx="4" fill="'+savFill+'"/>':'')+
-      (ev>0?'<text x="'+cx1+'" y="'+expLblY+'" text-anchor="middle" font-size="9" font-weight="700" fill="#e5383b">'+fmt(ev)+'</text>':'')+
-      (sv>0?'<text x="'+cx2+'" y="'+savLblY+'" text-anchor="middle" font-size="9" font-weight="700" fill="#7c3aed">'+fmt(sv)+'</text>':'')+
-      '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9.5" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
-      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7.5" fill="#94a3b8">עד כה</text>':'');
+      (ev>0?'<text x="'+cx1+'" y="'+expLblY+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#e5383b">'+fmt(ev)+'</text>':'')+
+      (sv>0?'<text x="'+cx2+'" y="'+savLblY+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#7c3aed">'+fmt(sv)+'</text>':'')+
+      '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
+      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="#94a3b8">עד כה</text>':'');
   });
   bars+='</g>';
   const legend='<span class="mini" style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2.5px;background:#e5383b;display:inline-block"></span>הוצאות</span>'+
     '<span class="mini" style="display:inline-flex;align-items:center;gap:5px;margin-inline-start:14px"><span style="width:8px;height:8px;border-radius:2.5px;background:#7c3aed;display:inline-block"></span>חיסכון</span>';
+  // max-width קבוע (לא width:100% טהור): בלי זה, ב-viewBox עם יחס רוחב-גובה קבוע,
+  // "height:auto" גורם לגובה בפועל (וכל מה שבפנים, כולל טקסט) לתפוח באותה מידה
+  // שהרוחב תופח — בכרטיס רחב מאוד (למשל ברשת הדו-טורית של הדסקטופ), הסכומים היו
+  // יוצאים ענקיים. אותו עיקרון בדיוק שכבר קיים בעוגה (.dsvg — גודל קבוע, לא %).
   return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות וחיסכון — 6 חודשים אחרונים</div>'+
     '<div style="margin-bottom:6px">'+legend+'</div>'+
-    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:360px;height:auto;display:block;margin:0 auto">'+bars+'</svg></div>';
 }
 function updAlertDots(wrap){
   const slides=wrap.querySelectorAll('.alertSlide');
