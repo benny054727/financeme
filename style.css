@@ -23,6 +23,9 @@ header{background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:calc(18px + en
 .b2{width:180px;height:180px;background:#a78bfa;bottom:-60px;right:30px}
 .hinner{position:relative;z-index:1;max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px}
+/* עותק הלוגו בתוך ה-nav (.nav-brand) רלוונטי רק לדסקטופ — במובייל מוסתר,
+   ה-.brand המקורי ב-header ממשיך להופיע שם כרגיל */
+.nav-brand{display:none}
 .bicon{width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;border:1px solid rgba(255,255,255,.2)}
 .bname{color:#fff;font-size:18px;font-weight:800;letter-spacing:-.3px}
 .hbtns{display:flex;gap:8px}
@@ -251,10 +254,14 @@ nav .spacer{pointer-events:none;visibility:hidden}
   /* #app מקבל position:relative כדי שה-nav (position:absolute) יתמקם ביחס
      אליו — ממש בתחילת הדף, לא ביחס לכל ה-viewport */
   #app{position:relative}
-  /* מרווח נוסף למעלה בהדר: מפנה מקום לפס הניווט המלא-רוחב שיושב עכשיו
-     מעליו כשורה נפרדת (position:absolute), כדי שהלוגו וכותרת העמוד לא
-     ייחתכו מתחת לפס */
-  header{padding-top:calc(64px + env(safe-area-inset-top,0px))}
+  /* padding-top: מפנה מקום לפס הניווט הדביק שיושב מעליו. padding-bottom
+     קטן בהרבה מברירת המחדל (74px, שנועדה למובייל כדי ש-main יחפוף כלפי
+     מעלה לתוך ההדר) — כאן main לא חופפת (margin-top:32px, לא שלילי),
+     אז אין יותר צורך בכל הגובה הזה: ההדר מתכווץ להתאים בול לכותרת העמוד
+     בלבד (הלוגו עבר ל-nav, ראו .nav-brand), במקום להשאיר רצועת כחול ריקה
+     מיותרת מתחת לכותרת. */
+  header{padding-top:calc(64px + env(safe-area-inset-top,0px));padding-bottom:22px}
+  .htitle{margin-top:6px}
   /* .hinner (עוטפת הלוגו + סמלי ההגדרות/סנכרון) מגדירה z-index:1 משלה
      (כדי לצייר את הלוגו מעל הבלובים המעוצבים בהדר) — אבל z-index+position
      יחד יוצרים "הקשר ערימה" (stacking context) חדש, שכולא בתוכו את
@@ -265,6 +272,9 @@ nav .spacer{pointer-events:none;visibility:hidden}
      הגבוהה יותר; הסדר מול הבלובים עדיין נכון כי הוא נשען על סדר ה-DOM
      בלבד (הבלובים לפני .hinner) ולא זקוק ל-z-index בכלל. */
   .hinner{z-index:auto}
+  /* הלוגו עבר לשבת בתוך שורת הניווט הדביקה (.nav-brand) — ה-.brand המקורי
+     כאן ב-header מוסתר בדסקטופ (עדיין מוצג במובייל, ללא שינוי) */
+  header .brand{display:none}
   /* סמלי ההגדרות/סנכרון: מוצגים ויזואלית בתוך פס הניווט (הרצועה הלבנה),
      בקצה השמאלי הממשי של המסך — ה-DOM נשאר בתוך header כמו קודם, רק
      ה-z-index (גבוה מזה של nav) גורם להם להצטייר מעל הרקע הלבן שלו.
@@ -320,10 +330,18 @@ nav .spacer{pointer-events:none;visibility:hidden}
   /* פילה כחולה בהירה על העמוד הפעיל — color/font-weight כבר מגיעים מ-nav button.on
      הבסיסי, כאן רק מוסיפים את הרקע כדי שהאייקון+טקסט ייראו "מודגשים" בשורה אופקית */
   nav button.on{background:rgba(37,99,235,.1)}
-  /* כפתור ה"+" (fab) מקונן עכשיו כילד ראשון של nav (ראו index.html) — במובייל
-     נשאר position:fixed כרגיל (ילד עם fixed לא משתתף בפריסת ה-flex של ההורה,
-     אז זה לא משפיע שם בכלל). בדסקטופ הופך לפריט רגיל בתוך שורת הניווט: עיגול
-     כחול קטן, ראשון מימין (RTL) לפני "בית". */
+  /* .nav-brand: הלוגו בתוך שורת הניווט — ראשון מימין (RTL), במקום שבו היה
+     קודם כפתור ה-fab. אותם צבעים "זכוכית לבנה על כחול" כמו ה-.brand
+     המקורי היו נעלמים כמעט לגמרי על .surface הלבנה של ה-nav, אז כאן
+     האייקון/הטקסט מקבלים גרסה מותאמת לרקע בהיר, וגודל מוקטן שמתאים
+     לגובה שורת הניווט. */
+  .nav-brand{display:flex;flex:none;margin-left:8px}
+  .nav-brand .bicon{width:32px;height:32px;font-size:15px;background:var(--bg);border:1px solid var(--border);border-radius:10px}
+  .nav-brand .bname{color:var(--text);font-size:14px}
+  /* כפתור ה"+" (fab) מקונן עכשיו כילד אחרון של nav, אחרי "חיסכון" (ראו
+     index.html) — במובייל נשאר position:fixed כרגיל (ילד עם fixed לא
+     משתתף בפריסת ה-flex של ההורה, אז זה לא משפיע שם בכלל). בדסקטופ הופך
+     לפריט רגיל בתוך שורת הניווט: עיגול כחול קטן, אחרון בצד שמאל (RTL). */
   .fab{position:static;width:34px;height:34px;font-size:19px;border:none;box-shadow:none;transform:none;margin-left:6px}
   .fab:active{transform:scale(.93)}
 }

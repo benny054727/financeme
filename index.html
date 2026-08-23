@@ -50,13 +50,18 @@
      בכל מקרה, כך שהמיקום כאן לא משפיע על התצוגה הקיימת שם. ה-fab מקונן כילד ראשון
      בתוך ה-nav מאותה סיבה בדיוק: במסך רחב הוא הופך לפריט רגיל בתוך שורת הניווט. -->
 <nav id="nav" class="hide">
-  <button id="fab" class="fab hide" onclick="openEntry()" aria-label="הוספת תנועה">+</button>
+  <!-- .nav-brand: עותק של הלוגו, רלוונטי רק לדסקטופ (שם ה-nav הוא שורה עליונה
+       קבועה שהחליפה את מיקום ה-fab הישן) — .brand המקורי ב-header נשאר כמו
+       שהיה לצורך מובייל. שני האלמנטים קיימים תמיד ב-DOM; ה-CSS מציג רק אחד
+       מהם לפי רוחב המסך (ראו הגדרות .nav-brand/.brand ב-style.css). -->
+  <div class="brand nav-brand"><div class="bicon">💰</div><div class="bname">FinanceMe</div></div>
   <button data-p="home" class="on"><span class="ni" aria-hidden="true">🏠</span>בית</button>
   <button data-p="account"><span class="ni" aria-hidden="true">🏦</span>עו"ש</button>
   <button class="spacer" tabindex="-1" aria-hidden="true"><span class="ni">•</span>-</button>
   <button data-p="cards"><span class="ni" aria-hidden="true">💳</span>אשראי</button>
   <button data-p="expenses"><span class="ni" aria-hidden="true">📋</span>הוצאות</button>
   <button data-p="savings"><span class="ni" aria-hidden="true">🎯</span>חיסכון</button>
+  <button id="fab" class="fab hide" onclick="openEntry()" aria-label="הוספת תנועה">+</button>
 </nav>
 <main id="view"></main>
 </div>
