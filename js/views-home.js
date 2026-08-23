@@ -32,12 +32,15 @@ function vHome(){
   const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
   const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
-  // תחזית לסוף החודש — מקור אמת יחיד (CALC.monthEnd), אותו מספר בדיוק בכל מסך שמציג אותו
+  // תחזית לסוף החודש — מקור אמת יחיד (CALC.monthEnd), אותו מספר בדיוק בכל מסך
+  // שמציג אותו (גם דף עו"ש, גם ההתראות). מ-monthEnd() עצמה כבר כוללת את ההכנסה
+  // החודשית המינימלית הצפויה אם הוגדרה (settings.monthlyExpenseTarget) — לכן
+  // זה עכשיו המספר הראשי תמיד, בכל שלושת המקומות בבת אחת, בלי לשבור את העיקרון
+  // ש"תחזית" זהה בכל מקום שמציג אותה (המשתמש דיווח שכשזה היה המספר "לפני
+  // הכנסה" בלבד, זה הרגיש מטעה-כלפי-מטה כשידוע בוודאות שהמשכורת מגיעה).
   const forecastEnd=CALC.monthEnd();
-  // תחזית אחרי הכנסה — אותו דבר, בתוספת ההכנסה החודשית המינימלית שהוגדרה בהגדרות
-  // (settings.monthlyExpenseTarget משמש כאן פעם שנייה, גם כ"רצפת הכנסה" צפויה)
   const minIncome=DB.settings.monthlyExpenseTarget||0;
-  const forecastAfterIncome=forecastEnd+minIncome;
+  const forecastBeforeIncome=forecastEnd-minIncome;
   let h='';
   h+='<div class="hgreet" style="display:flex;align-items:center;gap:11px;margin-bottom:16px">'+
      '<div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 6px 16px rgba(37,99,235,.3)">👋</div>'+
@@ -46,10 +49,10 @@ function vHome(){
      '<div class="hamt '+(forecastEnd<0?'neg':'')+'">'+fmtS(forecastEnd)+'</div>'+
      '<div class="hrow">'+
      '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
-     (minIncome>0?'<div class="hcell"><div class="cl">אחרי הכנסה צפויה</div><div class="cv" style="color:'+(forecastAfterIncome<0?'var(--expense)':'var(--income)')+'">'+fmtS(forecastAfterIncome)+'</div></div>':'')+
+     (minIncome>0?'<div class="hcell"><div class="cl">לפני הכנסה צפויה</div><div class="cv" style="color:'+(forecastBeforeIncome<0?'var(--expense)':'var(--income)')+'">'+fmtS(forecastBeforeIncome)+'</div></div>':'')+
      '</div>'+
-     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש ('+fmt(m.out+loanPay+m.saving)+').'+
-     (minIncome>0?' "אחרי הכנסה צפויה" מוסיפה על זה את ההכנסה החודשית המינימלית שהגדרת ('+fmt(minIncome)+').':'')+'</div>'+
+     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש ('+fmt(m.out+loanPay+m.saving)+')'+
+     (minIncome>0?', בתוספת ההכנסה החודשית המינימלית שהגדרת ('+fmt(minIncome)+'). "לפני הכנסה צפויה" מציג את אותו חישוב בלי התוספת הזו.':'.')+'</div>'+
      '</div>';
   // kpiwrap עוטף את הכרטיס + ההערה מתחתיו כיחידה אחת — כדי שברשת הדו-טורית
   // (מסך רחב) הם לא ייקרעו זה מזה בשבירת עמודה, וההערה לא תישאר לבד בראש עמודה

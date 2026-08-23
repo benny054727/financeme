@@ -17,7 +17,7 @@ function vAccount(){
   h+='<div class="box"><div class="stitle"><span>📉</span> תחזית לסוף החודש</div>'+
      '<div class="barpct" style="color:'+(monthEnd<0?'var(--expense)':monthEnd<DB.settings.safetyBuffer?'var(--warn)':'var(--income)')+'">'+fmtS(monthEnd)+'</div>'+
      '<div class="alert '+(monthEnd<0?'a-crit':monthEnd<DB.settings.safetyBuffer?'a-warn':'a-good')+'" style="margin-top:10px">'+
-     '<div class="aic">'+(monthEnd<DB.settings.safetyBuffer?'⚠️':'✅')+'</div><div class="atx"><b>'+fmtS(monthEnd)+'</b>יתרה בבנק פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש. אותו מספר בדיוק כמו בדף הבית.</div></div></div>';
+     '<div class="aic">'+(monthEnd<DB.settings.safetyBuffer?'⚠️':'✅')+'</div><div class="atx"><b>'+fmtS(monthEnd)+'</b>יתרה בבנק פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש'+(DB.settings.monthlyExpenseTarget?', בתוספת ההכנסה החודשית המינימלית שהגדרת':'')+'. אותו מספר בדיוק כמו בדף הבית.</div></div></div>';
   const up=DB.transactions.filter(x=>x.chargeDate>=t).sort((a,b)=>a.chargeDate<b.chargeDate?-1:1);
   h+='<div class="box"><div class="stitle"><span>📅</span> חיובים והכנסות צפויים<span class="sright">'+up.length+'</span></div>';
   if(!up.length)h+='<div class="empty"><b>אין חיובים עתידיים</b>הכל כבר ירד מהחשבון</div>';
