@@ -326,14 +326,17 @@ function saveLoan(editId){
 }
 function delLoan(id){
   const loan=DB.loans.find(l=>l.id===id);if(!loan)return;
-  // אותו עיקרון בדיוק כמו delRec()/delGoal(): תשלום שכבר נרשם כתנועה החודש הזה
-  // נמחק יחד עם ההלוואה (כדי לא להשאיר חיוב "צפוי"/"שכבר ירד" יתום למשהו שכבר
-  // לא קיים), תנועות מחודשים קודמים נשארות בהיסטוריה.
-  const curTxId='loanpay_'+id+'_'+curYM();
-  const hasCurTx=DB.transactions.some(x=>x.id===curTxId);
-  if(!confirm(hasCurTx?'למחוק את ההלוואה? תשלום שכבר נרשם החודש הזה יימחק גם הוא. תשלומים מחודשים קודמים יישארו. הפעולה לא הפיכה.':'למחוק את ההלוואה? הפעולה לא הפיכה — הנתונים לא נשמרים במקום אחר.'))return;
+  // בניגוד ל-delRec()/delGoal() (עריכה/מחיקה משפיעה קדימה בלבד, היסטוריה נשארת) —
+  // כאן העיקרון הוא כמו deleteInstallmentGroup(): מחיקת הלוואה מוחקת את כל תשלומיה
+  // שנוצרו אוטומטית, כולל עבר. הסיבה: תשלומי הלוואה הם "סדרה" שנוצרה כולה על ידי
+  // המערכת (genLoanPayments) מרגע שהוגדרה ההלוואה, לא תנועות שהמשתמש הזין/אישר
+  // אחת-אחת — מחיקת ההלוואה אמורה להסיר גם את ההשפעה שלה על היתרה המוצגת, אחרת
+  // המשתמש רואה תנועות "יתומות" ויתרה שממשיכה לשקף הלוואה שכבר לא קיימת (בדיוק
+  // התלונה שהובילה לשינוי הזה).
+  const txCount=DB.transactions.filter(x=>x.loanId===id).length;
+  if(!confirm(txCount?'למחוק את ההלוואה? '+txCount+' תשלומים שכבר נרשמו (כולל מחודשים קודמים) יימחקו גם הם, וישפיעו על היתרה המוצגת. הפעולה לא הפיכה.':'למחוק את ההלוואה? הפעולה לא הפיכה — הנתונים לא נשמרים במקום אחר.'))return;
   DB.loans=DB.loans.filter(l=>l.id!==id);
-  if(hasCurTx)DB.transactions=DB.transactions.filter(x=>x.id!==curTxId);
+  DB.transactions=DB.transactions.filter(x=>x.loanId!==id);
   save();closeSheet();render();toast('נמחק');
 }
 function loanDetail(id){
