@@ -18,7 +18,11 @@ function vAccount(){
      '<div class="barpct" style="color:'+(monthEnd<0?'var(--expense)':monthEnd<DB.settings.safetyBuffer?'var(--warn)':'var(--income)')+'">'+fmtS(monthEnd)+'</div>'+
      '<div class="alert '+(monthEnd<0?'a-crit':monthEnd<DB.settings.safetyBuffer?'a-warn':'a-good')+'" style="margin-top:10px">'+
      '<div class="aic">'+(monthEnd<DB.settings.safetyBuffer?'⚠️':'✅')+'</div><div class="atx"><b>'+fmtS(monthEnd)+'</b>יתרה בבנק פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש'+(DB.settings.monthlyExpenseTarget?', בתוספת ההכנסה החודשית המינימלית שהגדרת':'')+'. אותו מספר בדיוק כמו בדף הבית.</div></div></div>';
-  const up=DB.transactions.filter(x=>x.chargeDate>=t).sort((a,b)=>a.chargeDate<b.chargeDate?-1:1);
+  // chargeDate<=t כבר נחשב "קרה" — אותו גבול בדיוק כמו CALC.balance() (מצרפת
+  // ליתרה תנועות עד היום כולל) ו-CALC.available() (סופרת כ"ממתין" רק chargeDate>t).
+  // בלי זה, תנועה עם chargeDate=היום (כמו הפקדה לחיסכון/קרן שנרשמת דרך "הפקד",
+  // שנרשמת עם chargeDate=today) הייתה מופיעה כאן כ"צפויה" למרות שכבר ירדה בפועל.
+  const up=DB.transactions.filter(x=>x.chargeDate>t).sort((a,b)=>a.chargeDate<b.chargeDate?-1:1);
   h+='<div class="box"><div class="stitle"><span>📅</span> חיובים והכנסות צפויים<span class="sright">'+up.length+'</span></div>';
   if(!up.length)h+='<div class="empty"><b>אין חיובים עתידיים</b>הכל כבר ירד מהחשבון</div>';
   else{
@@ -34,7 +38,7 @@ function vAccount(){
     }).join('');
   }
   h+='</div>';
-  const past=DB.transactions.filter(x=>x.chargeDate<t).sort((a,b)=>b.chargeDate<a.chargeDate?-1:1).slice(0,15);
+  const past=DB.transactions.filter(x=>x.chargeDate<=t).sort((a,b)=>b.chargeDate<a.chargeDate?-1:1).slice(0,15);
   h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות שכבר ירדו</div>';
   h+=past.length?past.map(txRow).join(''):'<div class="empty">אין עדיין</div>';
   h+='</div>';

@@ -94,16 +94,21 @@ function vHome(){
    שתי עמודות לכל חודש — הוצאות (CALC.month(y).out, קבועות+משתנות) וחיסכון
    (CALC.month(y).saving) — בכוונה זו לצד זו ולא מוערמות זו על זו: החיסכון הוא
    לא "עוד סוג הוצאה" (ראו catSummary/vExpenses — הוא נשאר קטגוריה נפרדת בכל
-   מקום באפליקציה), רק רוצים להשוות את שתי המגמות באותו גרף. עמודות החודש
-   הנוכחי (עדיין לא נגמר) מסומנות אחרת — מקווקוות ובצבע בהיר יותר — כדי לא
+   מקום באפליקציה), רק רוצים להשוות את שתי המגמות באותו גרף. עמודת החיסכון
+   עצמה כן מוערמת משני חלקים — יעדים אישיים (savingGoal, סגול) למטה, "קרן
+   לעתיד" (savingFund, טורקיז) למעלה — כי שני אלה כן אותה משפחה בדיוק (שניהם
+   חיסכון), רק סוגים שונים של יעד; זה שונה מהחלטה שלא לערום הוצאות מול חיסכון.
+   עמודות החודש הנוכחי (עדיין לא נגמר) מסומנות אחרת — בצבע בהיר יותר — כדי לא
    להטעות בהשוואה מול חודשים שלמים. */
 function expenseTrendChart(){
   const months=[];for(let i=5;i>=0;i--)months.push(addM(curYM(),-i));
   const expVals=months.map(y=>CALC.month(y).out);
-  const savVals=months.map(y=>CALC.month(y).saving);
-  const mx=Math.max(...expVals,...savVals,1);
+  const savGoalVals=months.map(y=>CALC.month(y).savingGoal);
+  const savFundVals=months.map(y=>CALC.month(y).savingFund);
+  const hasFund=DB.goals.some(g=>g.type==='fund');
+  const mx=Math.max(...expVals,...savGoalVals.map((v,i)=>v+savFundVals[i]),1);
   // הסכומים (החודש הנוכחי) מוצגים כטקסט HTML רגיל בשורת המקרא — לא כ-<text> בתוך
-  // ה-SVG. זה גם הרבה יותר פשוט ליישור (שורה אחת, שני span עם gap), וגם פותר
+  // ה-SVG. זה גם הרבה יותר פשוט ליישור (שורה אחת, כמה span עם gap), וגם פותר
   // לגמרי את הבעיה הקודמת: כשה-SVG נמתח לפי width:100%/height:auto על viewBox
   // עם יחס קבוע, כל מה שבפנים (כולל טקסט) היה "תופח" בכרטיס רחב. עכשיו שאין
   // יותר טקסט בתוך ה-SVG עצמו (רק העמודות ותוויות החודשים הקטנות), אפשר להחזיר
@@ -116,17 +121,22 @@ function expenseTrendChart(){
     const isCur=y===curYM();
     const gx=slotW*i+groupOff;
     const ev=expVals[i],eh=mx?Math.round((ev/mx)*maxH):0;
-    const sv=savVals[i],sh=mx?Math.round((sv/mx)*maxH):0;
-    const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed';
+    const sgv=savGoalVals[i],sgh=mx?Math.round((sgv/mx)*maxH):0;
+    const sfv=savFundVals[i],sfh=mx?Math.round((sfv/mx)*maxH):0;
+    const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed',fundFill=isCur?'#a8dde6':'#0891b2';
     const mLbl=isCur?'#2563eb':'#94a3b8';
+    const sx=gx+barW+barGap;
     bars+=(eh?'<rect x="'+gx+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="4" fill="'+expFill+'"/>':'')+
-      (sh?'<rect x="'+(gx+barW+barGap)+'" y="'+(baseY-sh)+'" width="'+barW+'" height="'+sh+'" rx="4" fill="'+savFill+'"/>':'')+
+      (sgh?'<rect x="'+sx+'" y="'+(baseY-sgh)+'" width="'+barW+'" height="'+sgh+'" rx="4" fill="'+savFill+'"/>':'')+
+      (sfh?'<rect x="'+sx+'" y="'+(baseY-sgh-sfh)+'" width="'+barW+'" height="'+sfh+'" rx="4" fill="'+fundFill+'"/>':'')+
       '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
       (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="#94a3b8">עד כה</text>':'');
   });
   bars+='</g>';
+  const legItem=(color,label,val)=>'<span style="display:inline-flex;align-items:center;gap:6px;margin-inline-start:16px"><span style="width:9px;height:9px;border-radius:2.5px;background:'+color+';display:inline-block;flex:none"></span><span class="mini">'+label+'</span><b style="font-size:13px;color:'+color+'">'+fmt(val)+'</b></span>';
   const legend='<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2.5px;background:#e5383b;display:inline-block;flex:none"></span><span class="mini">הוצאות</span><b style="font-size:13px;color:#e5383b">'+fmt(expVals[expVals.length-1])+'</b></span>'+
-    '<span style="display:inline-flex;align-items:center;gap:6px;margin-inline-start:16px"><span style="width:9px;height:9px;border-radius:2.5px;background:#7c3aed;display:inline-block;flex:none"></span><span class="mini">חיסכון</span><b style="font-size:13px;color:#7c3aed">'+fmt(savVals[savVals.length-1])+'</b></span>';
+    legItem('#7c3aed','חיסכון',savGoalVals[savGoalVals.length-1])+
+    (hasFund?legItem('#0891b2','קרן לעתיד',savFundVals[savFundVals.length-1]):'');
   return '<div class="box"><div class="stitle"><span>📈</span> מגמת הוצאות וחיסכון — 6 חודשים אחרונים</div>'+
     '<div style="display:flex;flex-wrap:wrap;margin-bottom:10px">'+legend+'</div>'+
     '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+bars+'</svg></div>';

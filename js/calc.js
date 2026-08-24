@@ -66,7 +66,7 @@ const CALC={
 
   /* 4.5 — סיכום חודשי (לפי חודש ההוצאה) */
   month(y){
-    const r={income:0,incomeBase:0,incomeExtra:0,out:0,fixed:0,variable:0,saving:0,byCat:{},byCard:{}};
+    const r={income:0,incomeBase:0,incomeExtra:0,out:0,fixed:0,variable:0,saving:0,savingGoal:0,savingFund:0,byCat:{},byCard:{}};
     DB.transactions.forEach(x=>{
       if(ym(x.date)!==y)return;
       const c=CALC.cat(x.categoryId);
@@ -83,6 +83,12 @@ const CALC={
         // byCat גם לחיסכון — כדי שטאב "חיסכון" בדף ההוצאות יוכל להציג פירוט לפי
         // קטגוריה (עוגה), באותו קוד גנרי בדיוק כמו קבועות/משתנות/הכנסות
         r.byCat[x.categoryId]=(r.byCat[x.categoryId]||0)+x.amount;
+        // savingGoal/savingFund — פיצול לפי סוג היעד המקושר (goalId), כדי שגרף
+        // המגמה בדף הבית יוכל להציג "חיסכון" (יעדים אישיים) ו"קרן לעתיד" בנפרד
+        // במקום מספר אחד מאוחד. תנועה בלי goalId (או שהיעד שלה כבר נמחק) נספרת
+        // כ"חיסכון" רגיל — ברירת המחדל, כי "קרן לעתיד" היא המקרה החריג.
+        const g=x.goalId?DB.goals.find(gg=>gg.id===x.goalId):null;
+        if(g&&g.type==='fund')r.savingFund+=x.amount;else r.savingGoal+=x.amount;
       }
       else{
         r.out+=x.amount;
