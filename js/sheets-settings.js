@@ -27,6 +27,8 @@ function openAccountSettings(){
    '<div class="fld"><label for="acPw1">סיסמה חדשה</label><input id="acPw1" type="password" autocomplete="new-password" placeholder="לפחות 8 תווים"/></div>'+
    '<div class="fld"><label for="acPw2">אימות סיסמה חדשה</label><input id="acPw2" type="password" autocomplete="new-password"/></div>'+
    '<button class="btn sec" onclick="changePassword()">עדכן סיסמה</button>'+
+   '<div class="hint" style="margin-top:16px">חושד שמישהו אחר מחובר לחשבון שלך? זה מבטל את כל הסשנים הפעילים בכל המכשירים — כולם יצטרכו להתחבר מחדש עם הסיסמה.</div>'+
+   '<button class="btn sec" style="margin-top:8px" onclick="doSignOutAll()">התנתק מכל המכשירים</button>'+
    '<button class="btn sec" style="margin-top:22px" onclick="doSignOut()">התנתק</button>',null,'openSettings');
 }
 async function saveAccountName(){

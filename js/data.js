@@ -132,7 +132,7 @@ async function doSignIn(){
 async function doSignUp(){
   const email=el('authEmail').value.trim(),pw=el('authPw').value;
   if(!email||!pw)return toast('הזן אימייל וסיסמה');
-  if(pw.length<6)return toast('סיסמה חייבת להיות לפחות 6 תווים');
+  if(pw.length<8)return toast('סיסמה חייבת להיות לפחות 8 תווים');
   const {data,error}=await sb.auth.signUp({email,password:pw});
   if(error)return toast('שגיאת הרשמה: '+error.message);
   if(data.user&&!data.session){showLogin('נשלח מייל אימות ל-'+email+' — אשר ואז התחבר.');return;}
@@ -143,6 +143,14 @@ async function doSignUp(){
 async function doSignOut(){
   if(!confirm('להתנתק? הנתונים נשארים בענן, תוכל להתחבר שוב מכל מכשיר.'))return;
   await sb.auth.signOut();
+  CURRENT_USER=null;
+  location.reload();
+}
+// scope:'global' (במקום ברירת המחדל 'local') מבטל את כל הסשנים הפעילים של
+// החשבון בכל המכשירים, לא רק את זה — שימושי אם יש חשד שמישהו אחר מחובר
+async function doSignOutAll(){
+  if(!confirm('להתנתק מכל המכשירים שמחוברים לחשבון הזה? כל מי שמחובר יצטרך להתחבר מחדש עם הסיסמה. הנתונים עצמם לא נמחקים.'))return;
+  try{await sb.auth.signOut({scope:'global'});}catch(e){}
   CURRENT_USER=null;
   location.reload();
 }
