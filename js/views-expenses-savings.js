@@ -195,14 +195,22 @@ function goalGrowthChart(g){
 }
 function delGoal(id){
   const g=DB.goals.find(x=>x.id===id);if(!g)return;
-  // הפקדות שכבר נרשמו החודש הנוכחי עבור היעד הזה — בלי לטפל בהן הן נשארות תנועה
-  // יתומה שממשיכה להיספר כחיסכון/הוצאה בכל מקום (עוגה/תנועות/דף הבית) למרות שהיעד
-  // כבר נמחק. באותו עיקרון בדיוק כמו delRec(): תנועות החודש הנוכחי נמחקות יחד עם
-  // היעד, תנועות מחודשים קודמים נשארות בהיסטוריה ("עריכה משפיעה קדימה בלבד").
-  const curTx=DB.transactions.filter(x=>x.goalId===id&&ym(x.date)===curYM());
-  if(!confirm(curTx.length?'למחוק את היעד "'+g.name+'"? '+curTx.length+' הפקדות שנרשמו החודש הזה יימחקו גם הן. תנועות מחודשים קודמים יישארו.':'למחוק את היעד?'))return;
+  // תנועות שקושרו ליעד הזה מתחלקות לשני סוגים, עם טיפול שונה במחיקה (אותו עיקרון
+  // כמו delLoan(), אבל מותאם לזה שביעד — בניגוד להלוואה — הוראת קבע מקושרת ממשיכה
+  // לרוץ גם אחרי המחיקה):
+  // (1) הפקדות ידניות (doDeposit, בלי recurringId) — קיימות רק בגלל היעד הזה,
+  //     שום דבר אחר לא ייצר עוד כאלה. נמחקות לגמרי, כולל מהעבר — אחרת נשארות
+  //     תנועות יתומות שממשיכות להשפיע על היתרה המוצגת למרות שהיעד כבר לא קיים.
+  // (2) הפקדות מהוראת קבע מקושרת (recurringId מוגדר) — ההוראה ממשיכה לרוץ קדימה
+  //     גם אחרי מחיקת היעד (רק הקישור מתנתק, ראו למטה, עדיין הפקדה אמיתית
+  //     לחיסכון), אז מחיקת ההיסטוריה שלה הייתה יוצרת "חור" מלאכותי ברשימת
+  //     התנועות מול מה שממשיך להירשם קדימה לאותה הוראה. נשארות, רק goalId מתנקה.
+  const manualTx=DB.transactions.filter(x=>x.goalId===id&&!x.recurringId);
+  const recTx=DB.transactions.filter(x=>x.goalId===id&&x.recurringId);
+  if(!confirm(manualTx.length?'למחוק את היעד "'+g.name+'"? '+manualTx.length+' הפקדות ידניות שנרשמו עבורו יימחקו גם הן (כולל מהעבר). הפקדות מהוראת קבע יישארו בהיסטוריה, בלי קישור ליעד. הפעולה לא הפיכה.':'למחוק את היעד?'))return;
   DB.goals=DB.goals.filter(x=>x.id!==id);
-  if(curTx.length){const ids=curTx.map(t=>t.id);DB.transactions=DB.transactions.filter(x=>!ids.includes(x.id));}
+  if(manualTx.length){const ids=manualTx.map(t=>t.id);DB.transactions=DB.transactions.filter(x=>!ids.includes(x.id));}
+  recTx.forEach(t=>t.goalId=null);
   // הוראת קבע שהייתה מקושרת ליעד הזה ממשיכה לרוץ כרגיל (עדיין הפקדה לחיסכון אמיתית) —
   // רק מנתקים את הקישור, כדי לא להשאיר הפניה ליעד שכבר לא קיים
   DB.recurring.forEach(r=>{if(r.goalId===id)r.goalId=null;});
