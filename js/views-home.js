@@ -91,22 +91,18 @@ function vHome(){
 }
 /* גרף מגמת הוצאות וחיסכון ל-6 חודשים אחרונים (פריט מהביקורת המקצועית — היה
    בורר "6 חודשים אחרונים" בדף ההוצאות, אבל בלי שום גרף שבאמת משווה ביניהם).
-   שתי עמודות לכל חודש — הוצאות (CALC.month(y).out, קבועות+משתנות) וחיסכון
-   (CALC.month(y).saving) — בכוונה זו לצד זו ולא מוערמות זו על זו: החיסכון הוא
-   לא "עוד סוג הוצאה" (ראו catSummary/vExpenses — הוא נשאר קטגוריה נפרדת בכל
-   מקום באפליקציה), רק רוצים להשוות את שתי המגמות באותו גרף. עמודת החיסכון
-   עצמה כן מוערמת משני חלקים — יעדים אישיים (savingGoal, סגול) למטה, "קרן
-   לעתיד" (savingFund, טורקיז) למעלה — כי שני אלה כן אותה משפחה בדיוק (שניהם
-   חיסכון), רק סוגים שונים של יעד; זה שונה מהחלטה שלא לערום הוצאות מול חיסכון.
-   עמודות החודש הנוכחי (עדיין לא נגמר) מסומנות אחרת — בצבע בהיר יותר — כדי לא
-   להטעות בהשוואה מול חודשים שלמים. */
+   שלוש עמודות דקות ומלבניות זו-לצד-זו לכל חודש — הוצאות (אדום), חיסכון-יעדים
+   (סגול), קרן לעתיד (טורקיז) — לא מוערמות: המשתמש ביקש במפורש 3 עמודות נפרדות
+   בצורה מלבנית דקה במקום עמודת חיסכון מוערמת (rx נמוך יותר מגרסה קודמת כדי
+   שייראו מלבניות ולא כמו כמוסות). עמודות החודש הנוכחי (עדיין לא נגמר) מסומנות
+   אחרת — בצבע בהיר יותר — כדי לא להטעות בהשוואה מול חודשים שלמים. */
 function expenseTrendChart(){
   const months=[];for(let i=5;i>=0;i--)months.push(addM(curYM(),-i));
   const expVals=months.map(y=>CALC.month(y).out);
   const savGoalVals=months.map(y=>CALC.month(y).savingGoal);
   const savFundVals=months.map(y=>CALC.month(y).savingFund);
   const hasFund=DB.goals.some(g=>g.type==='fund');
-  const mx=Math.max(...expVals,...savGoalVals.map((v,i)=>v+savFundVals[i]),1);
+  const mx=Math.max(...expVals,...savGoalVals,...savFundVals,1);
   // הסכומים (החודש הנוכחי) מוצגים כטקסט HTML רגיל בשורת המקרא — לא כ-<text> בתוך
   // ה-SVG. זה גם הרבה יותר פשוט ליישור (שורה אחת, כמה span עם gap), וגם פותר
   // לגמרי את הבעיה הקודמת: כשה-SVG נמתח לפי width:100%/height:auto על viewBox
@@ -114,7 +110,7 @@ function expenseTrendChart(){
   // יותר טקסט בתוך ה-SVG עצמו (רק העמודות ותוויות החודשים הקטנות), אפשר להחזיר
   // אותו ל-width:100% מלא בלי לחשוש.
   const W=320,H=120,baseY=84,maxH=54;
-  const slotW=W/6,barW=13,barGap=4,groupW=barW*2+barGap,groupOff=(slotW-groupW)/2;
+  const slotW=W/6,barW=8,barGap=3,groupW=barW*3+barGap*2,groupOff=(slotW-groupW)/2;
   let bars='<g font-family="Heebo">';
   bars+='<line x1="2" y1="'+baseY+'" x2="'+(W-2)+'" y2="'+baseY+'" stroke="#eef1f6" stroke-width="1"/>';
   months.forEach((y,i)=>{
@@ -125,10 +121,10 @@ function expenseTrendChart(){
     const sfv=savFundVals[i],sfh=mx?Math.round((sfv/mx)*maxH):0;
     const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed',fundFill=isCur?'#a8dde6':'#0891b2';
     const mLbl=isCur?'#2563eb':'#94a3b8';
-    const sx=gx+barW+barGap;
-    bars+=(eh?'<rect x="'+gx+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="4" fill="'+expFill+'"/>':'')+
-      (sgh?'<rect x="'+sx+'" y="'+(baseY-sgh)+'" width="'+barW+'" height="'+sgh+'" rx="4" fill="'+savFill+'"/>':'')+
-      (sfh?'<rect x="'+sx+'" y="'+(baseY-sgh-sfh)+'" width="'+barW+'" height="'+sfh+'" rx="4" fill="'+fundFill+'"/>':'')+
+    const x1=gx,x2=gx+barW+barGap,x3=gx+(barW+barGap)*2;
+    bars+=(eh?'<rect x="'+x1+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="1.5" fill="'+expFill+'"/>':'')+
+      (sgh?'<rect x="'+x2+'" y="'+(baseY-sgh)+'" width="'+barW+'" height="'+sgh+'" rx="1.5" fill="'+savFill+'"/>':'')+
+      (sfh?'<rect x="'+x3+'" y="'+(baseY-sfh)+'" width="'+barW+'" height="'+sfh+'" rx="1.5" fill="'+fundFill+'"/>':'')+
       '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
       (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="#94a3b8">עד כה</text>':'');
   });
