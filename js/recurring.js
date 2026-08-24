@@ -58,3 +58,55 @@ function genRecurring(){
   }
 }
 
+/* ============================================================
+   4ב. LOAN PAYMENTS — ייצור תנועות אמיתיות מתשלומי הלוואה, אותו מנגנון
+   בדיוק כמו genRecurring() (אותה נוסחת חודשים, אותו רעיון "מזהה קבוע =
+   אין כפילות", אותו anchorFold). ההבדל: המקור הוא DB.loans, לא DB.recurring,
+   והסכום נלקח מ-LOANS.loanCalc() בזמן הריצה (לא ערך קבוע שהמשתמש הזין) —
+   כך שאם ריבית בנק ישראל מתעדכנת, החודש הבא ייווצר עם ההחזר הנכון החדש
+   (חודשים שכבר נוצרו לא משתנים רטרואקטיבית, אותו עיקרון "עריכה משפיעה
+   קדימה בלבד" כמו בכל מקום אחר באפליקציה).
+   פעיל רק אם DB.settings.loansAffectBalance — אם כבוי, המשתמש כבר עוקב
+   אחרי ההלוואה בעצמו (הוראת קבע נפרדת למשל) ואסור ליצור גם תנועה אוטומטית
+   כאן, אחרת היא תיספר פעמיים (בדיוק הסיכון שהאזהרה המקורית של ההגדרה הזו
+   דיברה עליו, לפני שהיה בכלל מנגנון ייצור תנועות להלוואות).
+   קטגוריית היעד (kind:'loan') מכוונת ל-CALC.month() לא לספור את זה גם
+   כ"קבועות"/"משתנות" — ראו שם. ============================================================ */
+function genLoanPayments(){
+  if(!DB.settings.loansAffectBalance)return;
+  const lc=DB.categories.find(c=>c.kind==='loan');
+  if(!lc||!DB.loans.length)return;
+  const y=curYM();
+  let start=DB.meta.lastGenLoan||addM(y,-1);
+  const months=[];let m=start;
+  for(let i=0;i<14&&m<=y;i++){months.push(m);m=addM(m,1);}
+  let anchorFold=0;
+  months.forEach(mm=>{
+    DB.loans.forEach(loan=>{
+      const amt=LOANS.loanCalc(loan).totalPayment;
+      if(amt<=0)return;
+      const d=dayIn(mm,loan.payDay||10);
+      const id='loanpay_'+loan.id+'_'+mm;
+      if(DB.transactions.some(x=>x.id===id))return;
+      const isCard=loan.paymentMethod==='card',card=isCard?CALC.card(loan.cardId):null;
+      const chargeDate=isCard?CALC.chargeDate(d,card):d;
+      DB.transactions.push({
+        id:id,direction:'out',amount:amt,date:d,chargeDate:chargeDate,
+        categoryId:lc.id,method:isCard?'card':'account',cardId:card?card.id:null,
+        note:loan.name,installment:null,recurringId:null,incomeType:null,goalId:null,loanId:loan.id
+      });
+      // אותו רעיון בדיוק כמו anchorFold ב-genRecurring למעלה — תשלום שכבר "מכוסה"
+      // ע"י עוגן יתרת הבנק לא ייספר בטעות פעמיים
+      if(chargeDate<=(DB.account.openingDate||'0000-00-00'))anchorFold-=amt;
+    });
+  });
+  DB.meta.lastGenLoan=y;
+  if(anchorFold){
+    DB.account.openingBalance=(DB.account.openingBalance||0)+anchorFold;
+    save();
+    toast('יתרת הבנק עודכנה אוטומטית ('+fmtS(anchorFold)+') בעקבות תשלום הלוואה — אם זה עדיין לא ירד בבנק בפועל, תקן ב"עדכן יתרה מהבנק"');
+  }else{
+    save();
+  }
+}
+

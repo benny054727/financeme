@@ -8,9 +8,9 @@ function vAccount(){
   h+='<div class="box"><div class="stitle"><span>🏦</span> הלוואות'+(DB.loans.length?'<span class="sright">'+fmt(LOANS.allMonthlyTotal())+' לחודש</span>':'')+'</div>';
   if(!DB.loans.length)h+='<div class="empty"><b>אין הלוואות רשומות</b>הוסף הלוואה כדי לעקוב אחרי החזר חודשי, יתרה וריבית</div>';
   else DB.loans.forEach(loan=>{
-    const lc=LOANS.loanCalc(loan);
+    const lc=LOANS.loanCalc(loan),lcard=loan.paymentMethod==='card'?CALC.card(loan.cardId):null;
     h+='<div class="eitem tap" onclick="loanDetail(\''+loan.id+'\')"><div class="eico">🏦</div><div class="einfo"><div class="ename">'+esc(loan.name)+'</div>'+
-      '<div class="etag">יתרה '+fmt(lc.totalBalance)+' · '+loan.tracks.length+' מסלולים</div></div>'+
+      '<div class="etag">יתרה '+fmt(lc.totalBalance)+' · '+loan.tracks.length+' מסלולים · '+(lcard?'כרטיס '+esc(lcard.name):'מהעו"ש')+'</div></div>'+
       '<div class="eside"><div class="eamt">'+fmt(lc.totalPayment)+'</div><div class="edate">לחודש</div></div></div>';
   });
   h+='<button class="addrow" style="margin-top:14px;margin-bottom:0" onclick="openLoanForm()">+ הוסף הלוואה</button></div>';

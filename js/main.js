@@ -7,7 +7,7 @@ document.querySelectorAll('nav button[data-p]').forEach(b=>{
 function boot(){
   el('setup').classList.add('hide');el('app').classList.remove('hide');
   el('nav').classList.remove('hide');el('fab').classList.remove('hide');
-  genRecurring();render();
+  genRecurring();genLoanPayments();render();
 }
 (async function init(){
   const {data:{session}}=await sb.auth.getSession();

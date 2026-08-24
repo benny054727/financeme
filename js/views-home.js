@@ -30,7 +30,10 @@ function render(){
 /* ---------- HOME ---------- */
 function vHome(){
   const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
-  const loanPay=LOANS.allMonthlyTotal(); // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש"
+  // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש".
+  // m.loan (מתנועות אמיתיות, genLoanPayments) ולא LOANS.allMonthlyTotal() החי — כדי
+  // שלא יסתור את av.balance/monthEnd שכבר כוללים את אותן תנועות (ראו CALC.monthEnd())
+  const loanPay=m.loan;
   const totalSaved=DB.goals.reduce((s,g)=>s+g.saved,0); // סה"כ מצטבר בכל היעדים — אותו חישוב בדיוק כמו בדף החיסכון, כדי ששני המקומות תמיד יתאימו
   // תחזית לסוף החודש — מקור אמת יחיד (CALC.monthEnd), אותו מספר בדיוק בכל מסך
   // שמציג אותו (גם דף עו"ש, גם ההתראות). מ-monthEnd() עצמה כבר כוללת את ההכנסה

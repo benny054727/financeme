@@ -148,15 +148,21 @@ scenario('תחזית לסוף החודש (CALC.monthEnd) — מקור אמת י�
   D.account.openingDate = '2026-08-15';
   D.settings.loansAffectBalance = true;
   D.loans = [{
-    id:'l2', name:'הלוואת בדיקה', startDate:'2026-08-17', payDay:10,
+    id:'l2', name:'הלוואת בדיקה', startDate:'2026-08-17', payDay:10, paymentMethod:'account', cardId:null,
     tracks:[{type:'fixed', fixedRate:0, principal:8820, termMonths:12}] // 8820/12 = 735 לחודש
   }];
   D.transactions = [
     {id:'e1', direction:'out', amount:5025, method:'account', date:'2026-08-10', chargeDate:'2026-08-10', categoryId:'c_rent'},
     {id:'e2', direction:'out', amount:300,  method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_super'},
-    {id:'e3', direction:'out', amount:1500, method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_save'}
+    {id:'e3', direction:'out', amount:1500, method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_save'},
+    // תשלום ההלוואה של החודש, "כאילו" כבר נוצר ע"י genLoanPayments() (הבדיקה לא קוראת
+    // לפונקציות ייצור אמיתיות — ראו הערה למעלה — אז יוצרים את התנועה ידנית, chargeDate
+    // עתידי כמו e2/e3 כדי לא להשפיע על av.balance ולבודד רק את הנוסחה שנבדקת כאן)
+    {id:'lp1', direction:'out', amount:735,  method:'account', date:'2026-08-15', chargeDate:'2026-09-10', categoryId:'c_loan', loanId:'l2'}
   ];
   eq(Math.round(LOANS.allMonthlyTotal()), 735, 'בדיקת ביניים — תשלום ההלוואה לחודש');
+  eq(CALC.month('2026-08').loan, 735, 'בדיקת ביניים — CALC.month מזהה את קטגוריית ההלוואה בנפרד מקבועות/משתנות');
+  eq(CALC.month('2026-08').out, 5325, 'בדיקת ביניים — תשלום הלוואה לא נספר גם ב"הוצאות" (קבועות+משתנות בלבד, בלי כפילות)');
   eq(CALC.monthEnd(), 1240, 'תחזית = יתרה (8800) פחות קבועות+משתנות+הלוואה+חיסכון (5025+300+735+1500=7560)');
 });
 

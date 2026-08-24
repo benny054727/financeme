@@ -263,17 +263,31 @@ let tmpTracks=[];
 function openLoanForm(editId){
   const loan=editId?DB.loans.find(l=>l.id===editId):null;
   tmpTracks=loan?JSON.parse(JSON.stringify(loan.tracks)):[{id:uid('trk'),name:'פריים',type:'prime',principal:0,margin:-0.5,fixedRate:0,termMonths:240}];
+  const method=loan?(loan.paymentMethod||'account'):'account';
   sheet(loan?'עריכת הלוואה':'הלוואה חדשה',
    '<div class="fld"><label for="lnName">שם ההלוואה</label><input id="lnName" type="text" placeholder="משכנתא" value="'+(loan?esc(loan.name):'')+'"/></div>'+
    '<div class="row2"><div class="fld"><label for="lnStart">תאריך תחילת ההלוואה</label><input id="lnStart" type="date" value="'+(loan?loan.startDate:iso(today()))+'"/></div>'+
    '<div class="fld"><label for="lnPayDay">יום חיוב בחודש</label><input id="lnPayDay" type="number" min="1" max="31" value="'+(loan?loan.payDay||10:10)+'"/></div></div>'+
+   '<div class="row2"><div class="fld"><label for="lnMethod">אמצעי תשלום</label><select id="lnMethod" onchange="paintLoanCardField()">'+
+     '<option value="account" '+(method==='account'?'selected':'')+'>ישירות מהעו"ש</option>'+
+     '<option value="card" '+(method==='card'?'selected':'')+'>כרטיס אשראי</option></select></div>'+
+   '<div class="fld" id="lnCardWrap"><label for="lnCard">כרטיס</label><select id="lnCard">'+
+     (DB.cards.length?DB.cards.map(c=>'<option value="'+c.id+'" '+(loan&&loan.cardId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join(''):'<option value="">אין כרטיסים מוגדרים</option>')+
+   '</select></div></div>'+
+   '<div class="hint" style="margin:-8px 0 12px">קובע איפה תשלום ההלוואה יופיע: ישירות מהעו"ש נספר ב"תנועות שכבר ירדו" ברגע שהגיע יום החיוב, כרטיס אשראי נספר ב"חיובים והכנסות צפויים" עד תאריך החיוב של הכרטיס.</div>'+
    '<div class="stitle" style="margin-top:18px;font-size:13px">מסלולים</div>'+
    '<div id="trackRows"></div>'+
    '<button class="addrow" onclick="addTrackRow()">+ הוסף מסלול</button>'+
    (DB.settings.boiRate?'':'<div class="note" style="margin-top:14px">⚠️ ריבית בנק ישראל לא הוגדרה עדיין (הגדרות → הלוואות) — מסלולי פריים יחושבו לפי מרווח בלבד.</div>')+
    '<button class="btn" style="margin-top:16px" onclick="saveLoan('+(loan?"'"+loan.id+"'":'null')+')">שמור</button>'+
    (loan?'<button class="btn dgr" style="margin-top:10px" onclick="delLoan(\''+loan.id+'\')">מחק הלוואה</button>':''),
-   paintTrackRows);
+   function(){paintTrackRows();paintLoanCardField();});
+}
+// מציג/מסתיר את בורר הכרטיס לפי אמצעי התשלום הנבחר — נקרא גם בפתיחת הטופס
+// (במקרה של עריכת הלוואה שכבר מוגדרת ל"כרטיס") וגם ב-onchange של הבורר עצמו
+function paintLoanCardField(){
+  const w=el('lnCardWrap');if(!w)return;
+  w.style.display=el('lnMethod').value==='card'?'':'none';
 }
 function paintTrackRows(){
   const w=el('trackRows');if(!w)return;
@@ -298,22 +312,35 @@ function saveLoan(editId){
   const clean=tmpTracks.filter(t=>t.principal>0&&t.termMonths>0);
   if(!clean.length)return toast('הוסף לפחות מסלול אחד עם קרן ותקופה');
   const start=el('lnStart').value||iso(today()),payDay=+el('lnPayDay').value||10;
+  const paymentMethod=el('lnMethod').value==='card'?'card':'account';
+  const cardId=paymentMethod==='card'?(el('lnCard').value||null):null;
+  if(paymentMethod==='card'&&!cardId)return toast('בחר כרטיס, או הגדר כרטיס בהגדרות קודם');
   if(editId){
     const loan=DB.loans.find(l=>l.id===editId);if(!loan)return;
     loan.name=n;loan.startDate=start;loan.tracks=clean;loan.payDay=payDay;
+    loan.paymentMethod=paymentMethod;loan.cardId=cardId;
   }else{
-    DB.loans.push({id:uid('loan'),name:n,startDate:start,payDay:payDay,tracks:clean});
+    DB.loans.push({id:uid('loan'),name:n,startDate:start,payDay:payDay,tracks:clean,paymentMethod:paymentMethod,cardId:cardId});
   }
-  save();closeSheet();render();toast('נשמר');
+  save();genLoanPayments();closeSheet();render();toast('נשמר');
 }
 function delLoan(id){
-  if(!confirm('למחוק את ההלוואה? הפעולה לא הפיכה — הנתונים לא נשמרים במקום אחר.'))return;
-  DB.loans=DB.loans.filter(l=>l.id!==id);save();closeSheet();render();toast('נמחק');
+  const loan=DB.loans.find(l=>l.id===id);if(!loan)return;
+  // אותו עיקרון בדיוק כמו delRec()/delGoal(): תשלום שכבר נרשם כתנועה החודש הזה
+  // נמחק יחד עם ההלוואה (כדי לא להשאיר חיוב "צפוי"/"שכבר ירד" יתום למשהו שכבר
+  // לא קיים), תנועות מחודשים קודמים נשארות בהיסטוריה.
+  const curTxId='loanpay_'+id+'_'+curYM();
+  const hasCurTx=DB.transactions.some(x=>x.id===curTxId);
+  if(!confirm(hasCurTx?'למחוק את ההלוואה? תשלום שכבר נרשם החודש הזה יימחק גם הוא. תשלומים מחודשים קודמים יישארו. הפעולה לא הפיכה.':'למחוק את ההלוואה? הפעולה לא הפיכה — הנתונים לא נשמרים במקום אחר.'))return;
+  DB.loans=DB.loans.filter(l=>l.id!==id);
+  if(hasCurTx)DB.transactions=DB.transactions.filter(x=>x.id!==curTxId);
+  save();closeSheet();render();toast('נמחק');
 }
 function loanDetail(id){
   const loan=DB.loans.find(l=>l.id===id);if(!loan)return;
-  const lc=LOANS.loanCalc(loan);
-  let h='<div class="note" style="margin-bottom:16px">יתרה כוללת: <b>'+fmt(lc.totalBalance)+'</b> · החזר חודשי כולל: <b>'+fmt(lc.totalPayment)+'</b> · ריבית שתיוותר: <b>'+fmt(lc.totalInterest)+'</b></div>';
+  const lc=LOANS.loanCalc(loan),lcard=loan.paymentMethod==='card'?CALC.card(loan.cardId):null;
+  let h='<div class="note" style="margin-bottom:16px">יתרה כוללת: <b>'+fmt(lc.totalBalance)+'</b> · החזר חודשי כולל: <b>'+fmt(lc.totalPayment)+'</b> · ריבית שתיוותר: <b>'+fmt(lc.totalInterest)+'</b></div>'+
+    '<div class="mini" style="margin:-10px 0 14px">💳 נגבה '+(lcard?'מכרטיס '+esc(lcard.name):'ישירות מהעו"ש')+' · יום חיוב '+(loan.payDay||10)+' בחודש</div>';
   lc.tracks.forEach(({tr,c})=>{
     h+='<div class="goal"><div class="ghead"><div><div class="gname">'+esc(tr.name||TRACK_TYPES[tr.type])+'</div>'+
       '<div class="gsub">'+TRACK_TYPES[tr.type]+' · ריבית נוכחית '+c.rate.toFixed(2)+'% · '+c.monthsLeft+' תשלומים נותרו</div></div>'+

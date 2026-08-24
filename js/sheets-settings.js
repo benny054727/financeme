@@ -65,7 +65,7 @@ function openLoanSettings(){
   const S=DB.settings;
   sheet('הלוואות וריבית',
    '<div class="fld"><label for="stBoi">ריבית בנק ישראל הנוכחית (%)</label><input id="stBoi" type="number" step="0.01" value="'+(S.boiRate||0)+'"/><div class="hint">משמשת לחישוב כל מסלולי הפריים בהלוואות. עדכן ידנית כשבנק ישראל משנה את הריבית — למערכת אין גישה לאינטרנט.'+(S.boiRateUpdated?' עודכן לאחרונה: '+dLabel(S.boiRateUpdated)+'.':'')+'</div></div>'+
-   '<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="stLoanBal" type="checkbox" style="width:auto" '+(S.loansAffectBalance?'checked':'')+'/> כלול תשלומי הלוואות ביתרה הזמינה ובתחזית</label><div class="hint">כשמסומן, תשלום ההלוואה (לפי "יום חיוב" שהגדרת לה) יורד מ"יתרה זמינה" ומהתחזית — בדיוק כמו חיוב אשראי. בטל אם אתה כבר עוקב אחרי אותו חיוב בנפרד כהוראת קבע, כדי לא לספור פעמיים.</div></div>'+
+   '<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="stLoanBal" type="checkbox" style="width:auto" '+(S.loansAffectBalance?'checked':'')+'/> כלול תשלומי הלוואות ביתרה הזמינה ובתחזית</label><div class="hint">כשמסומן, תשלום כל הלוואה (לפי "יום חיוב" ואמצעי התשלום שהגדרת לה — עו"ש או כרטיס אשראי) נרשם אוטומטית כתנועה אמיתית כל חודש, בדיוק כמו הוראת קבע — מופיע ב"תנועות שכבר ירדו"/"חיובים והכנסות צפויים" ונספר בתחזית וב"יתרה זמינה". בטל אם אתה כבר עוקב אחרי אותו חיוב בנפרד כהוראת קבע, כדי לא לספור פעמיים.</div></div>'+
    '<button class="btn" onclick="saveLoanSettings()">שמור</button>',null,'openSettings');
 }
 function saveLoanSettings(){
@@ -73,7 +73,7 @@ function saveLoanSettings(){
   if(newBoi!==DB.settings.boiRate)DB.settings.boiRateUpdated=iso(today());
   DB.settings.boiRate=newBoi;
   DB.settings.loansAffectBalance=el('stLoanBal').checked;
-  save();closeSheet();render();toast('נשמר');
+  save();genLoanPayments();closeSheet();render();toast('נשמר');
 }
 function openCardSettings(){
   sheet('כרטיסי אשראי',

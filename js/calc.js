@@ -25,28 +25,17 @@ const CALC={
     return b;
   },
 
-  /* תשלום הלוואה עתידי החודש, לפי יום החיוב שהוגדר לה — לא תנועה אמיתית בטבלה
-     (אין רשומה קבועה, שום דבר לא "נכנס" להיסטוריה), רק חישוב חי בזמן אמת. פעיל
-     רק אם המשתמש ביקש (settings.loansAffectBalance) — אחרת מי שכבר עוקב אחרי
-     ההלוואה כהוראת קבע נפרדת יראה אותה נספרת פעמיים. יום שכבר עבר החודש = מניחים
-     שכבר נכלל ביתרה שהוזנה/סונכרנה, בדיוק אותה הנחת "עוגן" כמו תנועות רגילות. */
-  loanPending(){
-    if(!DB.settings.loansAffectBalance)return 0;
-    const d=today().getDate();
-    return DB.loans.reduce((s,loan)=>{
-      const pay=LOANS.loanCalc(loan).totalPayment;
-      return (pay>0&&d<(loan.payDay||10))?s+pay:s;
-    },0);
-  },
-
   /* 4.3 — יתרה זמינה */
   available(){
     // שמרני בכוונה: מורידים רק התחייבויות עתידיות. הכנסה עתידית לא נספרת כאן —
     // היא מופיעה רק בתחזית. אחרת המספר מנפח את מה שבאמת אפשר להוציא היום.
+    // תשלומי הלוואה כלולים כאן "בחינם" — genLoanPayments() (recurring.js) יוצר
+    // להן תנועה אמיתית בטבלה בדיוק כמו הוראת קבע, אז הן כבר בתוך הלולאה הזו
+    // (direction:'out') ולא צריך לחשב אותן בנפרד (זה מה ש-loanPending() לשעבר
+    // עשה — הוסר, כי היה סופר פעמיים מרגע שהיה תנועה אמיתית).
     const t=iso(today());
     let pend=0;
     DB.transactions.forEach(x=>{ if(x.direction==='out'&&x.method!=='cash'&&x.chargeDate>t) pend+=x.amount; });
-    pend+=CALC.loanPending();
     const bal=CALC.balance();
     return {balance:bal,pending:pend,available:bal-pend};
   },
@@ -57,16 +46,20 @@ const CALC={
      הוצאות וגם כאן כ"רצפת הכנסה") אם הוגדרה — נוסחה יחידה, אותה בדיוק בכל מסך
      שמציג "תחזית" (דף הבית, דף עו"ש, וההתראות הקריטיות), כדי שלא יסתרו אחד את
      השני. ה"הכנסה הצפויה" נכללת כאן בכוונה: משתמש שדיווח על משכורת קבועה
-     שעוד לא ירדה החודש אבל בטוח שתרד לא רצה לראות תחזית שמתעלמת ממנה. */
+     שעוד לא ירדה החודש אבל בטוח שתרד לא רצה לראות תחזית שמתעלמת ממנה.
+     m.loan (לא LOANS.allMonthlyTotal() החי) — כדי לא לספור פעמיים: av.balance
+     כבר כולל תשלומי הלוואה שבאמת ירדו (chargeDate<=היום, ראו CALC.balance()),
+     ו-m.loan מוסיף את מה שעוד לא ירד החודש הזה (chargeDate עתידי, אותו רעיון
+     בדיוק כמו m.out לגבי הוצאות קבועות/משתנות רגילות). */
   monthEnd(){
-    const av=CALC.available(),m=CALC.month(curYM()),loanPay=LOANS.allMonthlyTotal();
+    const av=CALC.available(),m=CALC.month(curYM());
     const minIncome=DB.settings.monthlyExpenseTarget||0;
-    return av.balance-(m.out+loanPay+m.saving)+minIncome;
+    return av.balance-(m.out+m.loan+m.saving)+minIncome;
   },
 
   /* 4.5 — סיכום חודשי (לפי חודש ההוצאה) */
   month(y){
-    const r={income:0,incomeBase:0,incomeExtra:0,out:0,fixed:0,variable:0,saving:0,savingGoal:0,savingFund:0,byCat:{},byCard:{}};
+    const r={income:0,incomeBase:0,incomeExtra:0,out:0,fixed:0,variable:0,saving:0,savingGoal:0,savingFund:0,loan:0,byCat:{},byCard:{}};
     DB.transactions.forEach(x=>{
       if(ym(x.date)!==y)return;
       const c=CALC.cat(x.categoryId);
@@ -89,6 +82,14 @@ const CALC={
         // כ"חיסכון" רגיל — ברירת המחדל, כי "קרן לעתיד" היא המקרה החריג.
         const g=x.goalId?DB.goals.find(gg=>gg.id===x.goalId):null;
         if(g&&g.type==='fund')r.savingFund+=x.amount;else r.savingGoal+=x.amount;
+      }
+      else if(c.kind==='loan'){
+        // תשלומי הלוואה (genLoanPayments, recurring.js) נספרים בדלי נפרד משלהם —
+        // לא ב-r.out/fixed/variable — בדיוק כמו חיסכון, כי "הלוואה" כבר מוצגת בכל
+        // מקום באפליקציה כשורה נפרדת ("קבועות + משתנות + הלוואה + חיסכון"), לא
+        // כעוד סוג "הוצאה קבועה"
+        r.loan+=x.amount;
+        r.byCat[x.categoryId]=(r.byCat[x.categoryId]||0)+x.amount;
       }
       else{
         r.out+=x.amount;

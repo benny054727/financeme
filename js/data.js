@@ -177,6 +177,7 @@ const DEFAULT_CATS=[
  {id:'c_trans',name:'תחבורה',icon:'🚌',kind:'variable',budget:200},
  {id:'c_misc',name:'שונות',icon:'🛍️',kind:'variable',budget:400},
  {id:'c_save',name:'הפקדה לחיסכון',icon:'🪙',kind:'saving',budget:0},
+ {id:'c_loan',name:'החזר הלוואה',icon:'🏦',kind:'loan',budget:0},
  {id:'c_salary',name:'משכורת',icon:'💼',kind:'income',budget:0},
  {id:'c_reserve',name:'מענק מילואים',icon:'🎖️',kind:'income',budget:0},
  {id:'c_other_in',name:'הכנסה נוספת',icon:'➕',kind:'income',budget:0}
@@ -206,7 +207,18 @@ function migrate(){
   if(DB.settings.boiRateUpdated===undefined)DB.settings.boiRateUpdated=null;
   if(DB.settings.loansAffectBalance===undefined)DB.settings.loansAffectBalance=true;
   if(!Array.isArray(DB.loans))DB.loans=[];
-  DB.loans.forEach(loan=>{if(!loan.payDay)loan.payDay=10;});
+  DB.loans.forEach(loan=>{
+    if(!loan.payDay)loan.payDay=10;
+    // הלוואות מלפני התכונה "תשלום הלוואה = תנועה אמיתית": ברירת מחדל "ישירות
+    // מהעו"ש" (ההתנהגות ששררה בפועל קודם — היה חלק מהתחזית בלי תנועה בטבלה)
+    if(!loan.paymentMethod)loan.paymentMethod='account';
+    if(loan.cardId===undefined)loan.cardId=null;
+  });
+  if(DB.meta.lastGenLoan===undefined)DB.meta.lastGenLoan=null;
+  // משתמשים ותיקים: קטגוריית "החזר הלוואה" נוספה ל-DEFAULT_CATS אחרי שהם כבר
+  // שמרו DB משלהם, אז מוסיפים אותה כאן פעם אחת אם היא חסרה (בלי לגעת בשאר
+  // הקטגוריות הקיימות, בניגוד לתיקון החלופי כשהמערך כולו ריק)
+  if(!DB.categories.some(c=>c.id==='c_loan'))DB.categories.push({id:'c_loan',name:'החזר הלוואה',icon:'🏦',kind:'loan',budget:0});
   if(DB.meta.lastBackup===undefined)DB.meta.lastBackup=null;
   if(DB.meta.localSavedAt===undefined)DB.meta.localSavedAt=null;
   if(!Array.isArray(DB.meta.skipRec))DB.meta.skipRec=[];
