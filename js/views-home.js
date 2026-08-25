@@ -101,7 +101,12 @@ function vHome(){
    אחרת — בצבע בהיר יותר — כדי לא להטעות בהשוואה מול חודשים שלמים. */
 function expenseTrendChart(){
   const months=[];for(let i=5;i>=0;i--)months.push(addM(curYM(),-i));
-  const expVals=months.map(y=>CALC.month(y).out);
+  // out+loan (לא +saving — חיסכון כבר מוצג בנפרד כעמודות משלו למטה, בדיוק כמו
+  // ב"הוצאות" בכרטיסי ה-KPI ובתחזית; loan נוסף כאן כי מאז שתשלומי הלוואה הם
+  // תנועות אמיתיות (genLoanPayments) הן בדלי נפרד משלהן ב-CALC.month() ולא
+  // נכללות יותר ב-.out — בלי זה הגרף מציג "הוצאות" נמוך מדי ולא תואם למספר
+  // שמוצג בכל מקום אחר שמסכם "כמה יצא החודש")
+  const expVals=months.map(y=>{const mm=CALC.month(y);return mm.out+mm.loan;});
   const savGoalVals=months.map(y=>CALC.month(y).savingGoal);
   const savFundVals=months.map(y=>CALC.month(y).savingFund);
   const hasFund=DB.goals.some(g=>g.type==='fund');
