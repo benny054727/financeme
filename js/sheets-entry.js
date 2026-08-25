@@ -233,6 +233,11 @@ function openTxSmart(id){
   const kind=CALC.cat(x.categoryId).kind;
   if(kind==='fixed')return openFixedEdit(id);
   if(kind==='variable')return openVariableEdit(id);
+  // תשלום הלוואה: אותו עיקרון כמו "קבועה" עם הוראת קבע פעילה למעלה — עורכים את
+  // המקור (ההלוואה עצמה, עם כל הפרטים כולל אמצעי תשלום) ולא רק את התנועה הבודדת.
+  // אם ההלוואה כבר נמחקה (תנועה היסטורית יתומה שנשארה בכוונה) — אין מה לערוך,
+  // נופלים חזרה לעורך הגנרי (עדיין אפשר לצפות/למחוק את התנועה הבודדת).
+  if(kind==='loan'&&x.loanId&&DB.loans.some(l=>l.id===x.loanId))return loanDetail(x.loanId);
   return openTx(id);
 }
 function openFixedEdit(id){

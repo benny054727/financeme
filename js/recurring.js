@@ -83,7 +83,10 @@ function genLoanPayments(){
   let anchorFold=0;
   months.forEach(mm=>{
     DB.loans.forEach(loan=>{
-      const amt=LOANS.loanCalc(loan).totalPayment;
+      // מעוגל לשקל שלם — הנוסחה הגולמית (שפיצר) כמעט אף פעם לא יוצאת מספר עגול,
+      // ובלי עיגול התנועה נשמרת עם סכום כמו 616.7358833007362 (fmt() מעגל
+      // לתצוגה בכל מקום אחר, אבל שדה עריכה מספרי מציג את הערך הגולמי כמו שהוא)
+      const amt=Math.round(LOANS.loanCalc(loan).totalPayment);
       if(amt<=0)return;
       const d=dayIn(mm,loan.payDay||10);
       const id='loanpay_'+loan.id+'_'+mm;
