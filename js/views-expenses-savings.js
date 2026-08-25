@@ -20,6 +20,7 @@ function vExpenses(){
   // שאלה 4 תצוגות נפרדות ולא רק כיתובים בתוך פס אחד
   h+='<div class="tabcards"><button class="'+(expTab==='fixed'?'on':'')+'" onclick="expTab=\'fixed\';render()">קבועות<span class="segamt">'+fmt(m.fixed)+'</span></button>'+
      '<button class="'+(expTab==='variable'?'on':'')+'" onclick="expTab=\'variable\';render()">משתנות<span class="segamt">'+fmt(m.variable)+'</span></button>'+
+     '<button class="'+(expTab==='loan'?'on':'')+'" onclick="expTab=\'loan\';render()">הלוואות<span class="segamt">'+fmt(m.loan)+'</span></button>'+
      '<button class="'+(expTab==='saving'?'on':'')+'" onclick="expTab=\'saving\';render()">חיסכון<span class="segamt">'+fmt(m.saving)+'</span></button>'+
      '<button class="'+(expTab==='income'?'on':'')+'" onclick="expTab=\'income\';render()">הכנסות<span class="segamt">'+fmt(m.income)+'</span></button></div>';
   const prev=CALC.month(addM(y,-1));
@@ -28,17 +29,36 @@ function vExpenses(){
     h+='<div class="box" style="padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:center">'+
     '<span class="mini">לעומת '+ymLabel(addM(y,-1))+'</span>'+
     '<span style="font-weight:800;font-size:14px;color:'+(dl>0?'var(--expense)':'var(--income)')+'">'+(dl>0?'▲ ':'▼ ')+Math.abs(Math.round(dl))+'%</span></div></div>';}
-  const cats=DB.categories.filter(c=>c.kind===expTab);
-  const rows=cats.map(c=>({c:c,v:m.byCat[c.id]||0})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
-  // פירוט לפי קטגוריה — עוגה במקום רשימת שורות (חסך מקום, בלי לאבד מידע): שם וסכום
+  // "הלוואות": פירוט לפי הלוואה בודדת, לא לפי קטגוריה — כל תשלומי ההלוואות חולקים
+  // קטגוריה אחת (c_loan), אז עוגה "לפי קטגוריה" הייתה מראה פלח אחד ענק וחסר תועלת.
+  // בונים את הפירוט ישירות מהתנועות (note+loanId), לא מ-DB.loans — כדי שגם הלוואה
+  // שכבר נמחקה תמשיך להופיע נכון בהיסטוריה של חודשים קודמים (genLoanPayments שומר
+  // את שם ההלוואה כ-note בכל תנועה, בדיוק בשביל זה).
+  let rows;
+  if(expTab==='loan'){
+    const byLoan={};
+    DB.transactions.forEach(x=>{
+      if(ym(x.date)!==y||CALC.cat(x.categoryId).kind!=='loan')return;
+      const key=x.loanId||'_';
+      if(!byLoan[key])byLoan[key]={name:x.note||'הלוואה',v:0,loanId:x.loanId};
+      byLoan[key].v+=x.amount;
+    });
+    rows=Object.values(byLoan).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  }else{
+    const cats=DB.categories.filter(c=>c.kind===expTab);
+    rows=cats.map(c=>({c:c,v:m.byCat[c.id]||0})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  }
+  // פירוט לפי קטגוריה/הלוואה — עוגה במקום רשימת שורות (חסך מקום, בלי לאבד מידע): שם וסכום
   // כבר רואים במקרא של העוגה, ולחיצה על עיגול/שורה בעוגה פותחת חלונית עם הפרטים
   // המלאים כולל תקציב־מול־בפועל (רלוונטי בעיקר למשתנות — לקבועות אין תקציב מוגדר בכלל)
   if(rows.length){
     const palette=['#2563eb','#0ead69','#d97706','#e5383b','#7c3aed','#0891b2','#db2777','#65a30d','#f59e0b','#64748b'];
-    const donutItems=rows.map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length],click:'catSummary(\''+r.c.id+'\')'}));
-    h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי קטגוריה<span class="sright">'+fmt(cur)+'</span></div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
+    const donutItems=expTab==='loan'
+      ?rows.map((r,i)=>({n:r.name,v:r.v,c:palette[i%palette.length],click:(r.loanId&&DB.loans.some(l=>l.id===r.loanId))?'loanDetail(\''+r.loanId+'\')':''}))
+      :rows.map((r,i)=>({n:r.c.name,v:r.v,c:palette[i%palette.length],click:'catSummary(\''+r.c.id+'\')'}));
+    h+='<div class="box"><div class="stitle"><span>🍩</span> פירוט לפי '+(expTab==='loan'?'הלוואה':'קטגוריה')+'<span class="sright">'+fmt(cur)+'</span></div><div class="dwrap">'+donut(donutItems,cur)+'</div></div>';
   }else{
-    h+='<div class="box"><div class="empty"><b>'+(expTab==='income'?'אין הכנסות בחודש זה':(expTab==='saving'?'אין הפקדות לחיסכון בחודש זה':'אין הוצאות בחודש זה'))+'</b>לחץ + כדי לרשום</div></div>';
+    h+='<div class="box"><div class="empty"><b>'+(expTab==='income'?'אין הכנסות בחודש זה':(expTab==='saving'?'אין הפקדות לחיסכון בחודש זה':(expTab==='loan'?'אין תשלומי הלוואה בחודש זה':'אין הוצאות בחודש זה')))+'</b>'+(expTab==='loan'?'הוסף הלוואה בדף עו"ש':'לחץ + כדי לרשום')+'</div></div>';
   }
   // רשימת התנועות בפועל, לפי שם — כמו "תנועות אחרונות" בדף הבית, רק מסוננת לטאב ולחודש המוצגים
   const txsAll=DB.transactions.filter(x=>ym(x.date)===y&&CALC.cat(x.categoryId).kind===expTab).sort((a,b)=>b.date<a.date?-1:1);
