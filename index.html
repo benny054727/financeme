@@ -3,10 +3,27 @@
 <head>
 <meta charset="UTF-8"/>
 <!-- מצב כהה: מפעילים data-theme על <html> כמה שיותר מוקדם, לפני שה-CSS בכלל
-     נטען — אחרת המשתמש שבחר "כהה" ידנית רואה הבזק של המצב הבהיר לפני שהעדפתו
-     נטענת (localStorage). הפונקציות המלאות (applyTheme/toggleTheme/וכו') הן
-     ב-main.js; זה רק ה"קדימה" הקריטי-לתזמון. -->
-<script>(function(){try{var t=localStorage.getItem('financeme_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+     נטען — אחרת יש הבזק של המצב הלא-נכון לפני שההעדפה/חישוב הזריחה-שקיעה
+     מסתיימים. אם יש בחירה מפורשת (localStorage) היא מנצחת; אחרת מחשבים כאן
+     גרסה מצומצמת של אותה נוסחת זריחה/שקיעה שב-main.js (sunTimesIsrael) —
+     כפילות מכוונת, כי הקובץ הזה חייב לרוץ *לפני* main.js נטען בכלל. -->
+<script>(function(){try{
+  var t=localStorage.getItem('financeme_theme');
+  if(t!=='light'&&t!=='dark'){
+    var rad=Math.PI/180,now=new Date(),d=now.getTime()/86400000-0.5+2440588-2451545;
+    var lw=rad*-35.22,phi=rad*31.78,lc=Math.round(d-0.0009-lw/(2*Math.PI));
+    var ds=0.0009+lw/(2*Math.PI)+lc,M=rad*(357.5291+0.98560028*ds);
+    var L=M+rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M))+rad*102.9372+Math.PI;
+    var dec=Math.asin(Math.sin(L)*Math.sin(rad*23.4397));
+    var Jnoon=2451545+ds+0.0053*Math.sin(M)-0.0069*Math.sin(2*L);
+    var w=Math.acos((Math.sin(-0.833*rad)-Math.sin(phi)*Math.sin(dec))/(Math.cos(phi)*Math.cos(dec)));
+    var at=0.0009+(w+lw)/(2*Math.PI)+lc,Jset=2451545+at+0.0053*Math.sin(M)-0.0069*Math.sin(2*L);
+    var Jrise=Jnoon-(Jset-Jnoon);
+    var rise=(Jrise-2440587.5)*86400000,set=(Jset-2440587.5)*86400000,nowMs=now.getTime();
+    t=(nowMs<rise||nowMs>=set)?'dark':'light';
+  }
+  document.documentElement.setAttribute('data-theme',t);
+}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#2563eb"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>

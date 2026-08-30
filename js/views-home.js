@@ -62,7 +62,13 @@ function vHome(){
   let h='';
   h+='<div class="hgreet" style="display:flex;align-items:center;gap:11px;margin-bottom:16px">'+
      '<div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 6px 16px rgba(37,99,235,.3)">👋</div>'+
-     '<div><div style="font-size:15.5px;font-weight:800">שלום'+((CURRENT_USER&&CURRENT_USER.user_metadata&&CURRENT_USER.user_metadata.first_name)?', '+esc(CURRENT_USER.user_metadata.first_name):'')+'!</div><div class="mini">'+todayLabel()+'</div></div></div>';
+     '<div><div style="font-size:15.5px;font-weight:800">שלום'+((CURRENT_USER&&CURRENT_USER.user_metadata&&CURRENT_USER.user_metadata.first_name)?', '+esc(CURRENT_USER.user_metadata.first_name):'')+'!</div><div class="mini">'+todayLabel()+'</div></div>'+
+     // שעון חי (שעון ישראל) — מוצג רק בדף הבית. מתעדכן כל שנייה דרך tickClock()
+     // (main.js) ישירות על #liveClock, לא דרך render() מלא — אחרת כל שנייה
+     // הייתה מפעילה מחדש את אנימציית הכניסה של כל כרטיס בעמוד (.box{animation:rise})
+     '<div style="margin-right:auto;text-align:left;flex-shrink:0">'+
+       '<div id="liveClock" style="font-size:17px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums">'+israelTimeString()+'</div>'+
+       '<div class="mini">שעון ישראל</div></div></div>';
   h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>תחזית לסוף החודש</div>'+
      '<div class="hamt '+(forecastEnd<0?'neg':'')+'">'+fmtS(forecastEnd)+'</div>'+
      '<div class="hrow">'+
