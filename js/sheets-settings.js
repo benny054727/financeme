@@ -2,6 +2,14 @@ function openSettings(){
   sheet('הגדרות',
    '<div class="eitem tap" onclick="openAccountSettings()"><div class="eico">👤</div><div class="einfo"><div class="ename">חשבון</div>'+
      '<div class="etag">מחובר כ-'+esc(CURRENT_USER?CURRENT_USER.email:'')+'</div></div></div>'+
+   // שתי השורות הבאות (יתרת פתיחה, הכנסה קבועה) הן "פרטי הרשמה" שנאספו באשף
+   // ההתקנה הראשוני (setup.js) אבל לא היה להם עד עכשיו מקום לחזור ולערוך —
+   // לא בונים מסך/לוגיקה חדשים, רק מקשרים לתהליכי העריכה הקיימים (openSync,
+   // openRecurring/openVariableIncome) כדי לא לשכפל קוד שמירה שכבר קיים ונבדק
+   '<div class="eitem tap" onclick="openSync()"><div class="eico">🏧</div><div class="einfo"><div class="ename">יתרת פתיחה</div>'+
+     '<div class="etag">'+fmt(DB.account.openingBalance||0)+' · עודכן '+(DB.account.lastUpdated?dLabel(DB.account.lastUpdated):'מעולם לא')+'</div></div></div>'+
+   '<div class="eitem tap" onclick="openIncomeSettings()"><div class="eico">💼</div><div class="einfo"><div class="ename">הכנסה קבועה</div>'+
+     '<div class="etag">'+incomeSettingsTag()+'</div></div></div>'+
    '<div class="eitem tap" onclick="openFinancialSettings()"><div class="eico">🎯</div><div class="einfo"><div class="ename">מדיניות פיננסית</div>'+
      '<div class="etag">כרית ביטחון · מסגרת · יעד הוצאות</div></div></div>'+
    '<div class="eitem tap" onclick="openLoanSettings()"><div class="eico">🏦</div><div class="einfo"><div class="ename">הלוואות וריבית</div>'+
@@ -60,6 +68,30 @@ function saveFinancialSettings(){
   DB.settings.overdraftLimit=+el('stOd').value||0;
   DB.settings.monthlyExpenseTarget=+el('stTarget').value||0;
   save();closeSheet();render();toast('נשמר');
+}
+/* "הכנסה קבועה" בהגדרות — לא שדה חדש, רק מוצא את מקור ההכנסה הראשי (קטגוריית
+   c_salary, בדיוק כמו שאשף ההתקנה יוצר אותו) ומנתב לעורך הקיים שלו: הוראת קבע
+   פעילה (משכורת קבועה) או תזכורת הכנסה משתנה (משכורת לפי שעות וכו') — מה שיש. */
+function primarySalarySource(){
+  const rec=DB.recurring.find(r=>r.direction==='in'&&r.categoryId==='c_salary'&&r.active);
+  if(rec)return {type:'fixed',item:rec};
+  const vi=DB.variableIncomes.find(v=>v.categoryId==='c_salary'&&v.active);
+  if(vi)return {type:'variable',item:vi};
+  return null;
+}
+function incomeSettingsTag(){
+  const s=primarySalarySource();
+  if(!s)return 'לא הוגדרה';
+  return s.type==='fixed'?fmt(s.item.amount)+' · ב-'+s.item.dayOfMonth+' לחודש':'משתנה · בסביבות ה-'+s.item.dayOfMonth+' לחודש';
+}
+function openIncomeSettings(){
+  const s=primarySalarySource();
+  if(s)return s.type==='fixed'?openRecurring(s.item.id):openVariableIncome(s.item.id);
+  // אין הכנסה קבועה מוגדרת עדיין — אותה בחירה בדיוק כמו שלב ההכנסה באשף ההתקנה
+  sheet('הכנסה קבועה',
+   '<div class="note" style="margin-bottom:16px">איך מתקבלת ההכנסה שלך?</div>'+
+   '<button class="btn" style="margin-bottom:10px" onclick="openRecurring(null,\'c_salary\',\'in\')">משכורת קבועה — אותו סכום כל חודש</button>'+
+   '<button class="btn sec" onclick="openVariableIncome()">משתנה כל חודש — למשל לפי שעות</button>',null,'openSettings');
 }
 function openLoanSettings(){
   const S=DB.settings;
