@@ -22,9 +22,24 @@ function render(){
    savings:['🎯 חיסכון ויעדים','לאן אתה חותר']};
   el('ptitle').textContent=titles[PAGE][0];el('psub').textContent=titles[PAGE][1];
   document.querySelectorAll('nav button[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===PAGE));
-  el('view').innerHTML=({home:vHome,account:vAccount,cards:vCards,expenses:vExpenses,savings:vSavings})[PAGE]();
+  // התנגשות סנכרון (סמל 🔀 ליד ⚙️) הייתה קודם השינוי הוויזואלי היחיד — קל לפספס,
+  // וזה בפועל מה שגרם לבלבול אמיתי ("הוספתי הוצאה קבועה וזה לא נשמר"). עכשיו,
+  // כל עוד ההתנגשות לא נפתרה, כרטיס בולט נדבק לראש התוכן בכל דף (לא רק דף אחד),
+  // ומכיוון ש-render() תמיד מגלגל ל-scrollTo(0,0) בכל מעבר בין דפים, המשתמש
+  // עובר עליו כמעט בוודאות בפעם הבאה שהוא נוגע באפליקציה — בלי חסימה מלאה
+  // (modal אוטומטי היה עלול לסגור sheet פתוח שהמשתמש באמצע מילויו, ראו closeSheet()
+  // שרץ בתחילת sheet()).
+  const banner=syncConflict?conflictBannerHTML():'';
+  el('view').innerHTML=banner+({home:vHome,account:vAccount,cards:vCards,expenses:vExpenses,savings:vSavings})[PAGE]();
   window.scrollTo(0,0);
   afterRender();
+}
+function conflictBannerHTML(){
+  return '<div class="box" style="border:1.5px solid #fecaca;background:#fef2f2;display:flex;align-items:center;gap:14px;flex-wrap:wrap">'+
+   '<div style="font-size:22px;flex:none" aria-hidden="true">🔀</div>'+
+   '<div style="flex:1;min-width:200px"><b style="display:block;font-size:14px;color:#b91c1c;margin-bottom:2px">שינוי ממכשיר אחר לא סונכרן</b><span class="mini">מכשיר אחר שמר שינויים שהמסך הזה עוד לא ראה. עדכונים חדשים לא יישלחו לענן עד שתפתור את זה.</span></div>'+
+   '<button class="btn dgr" style="width:auto;padding:11px 20px;flex:none" onclick="handleSyncBadgeClick()">פתור עכשיו</button>'+
+   '</div>';
 }
 
 /* ---------- HOME ---------- */

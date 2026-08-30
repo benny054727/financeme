@@ -33,7 +33,11 @@ function syncToCloud(){
       if(knownCloudUpdatedAt){
         const {data:cur}=await sb.from('financeme_state').select('updated_at').eq('user_id',CURRENT_USER.id).maybeSingle();
         if(cur&&cur.updated_at&&cur.updated_at!==knownCloudUpdatedAt){
-          syncConflict=true;setSyncBadge('conflict');return; // לא שומרים — יידרש פתרון ידני דרך הסמל
+          // לא שומרים — יידרש פתרון ידני. render() כאן (לא רק setSyncBadge) כדי שכרטיס
+          // ההתנגשות הבולט (conflictBannerHTML, views-home.js) יופיע מיד — לא רק בפעם
+          // הבאה שהמשתמש עובר דף. render() לא נוגע ב-sheet פתוח (הוא DOM נפרד מ-#view),
+          // אז זה בטוח גם אם המשתמש באמצע מילוי טופס כרגע.
+          syncConflict=true;setSyncBadge('conflict');render();return;
         }
       }
       const nowIso=new Date().toISOString();
@@ -67,6 +71,7 @@ async function resolveConflict(choice){
   }else{
     knownCloudUpdatedAt=null;syncConflict=false; // מדלגים על בדיקת ההתנגשות בסבב הזה בכוונה
     await syncToCloudForce();
+    render(); // מסיר את כרטיס ההתנגשות (conflictBannerHTML) מהתצוגה הנוכחית מיד
   }
 }
 async function syncToCloudForce(){
