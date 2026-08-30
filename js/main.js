@@ -82,6 +82,35 @@ refreshAutoTheme();
 setInterval(tickClock,1000);
 setInterval(refreshAutoTheme,60000);
 
+/* ============================================================
+   נעילה אוטומטית מחוסר פעילות (אבטחה) — 5 דקות בלי שום אינטראקציה עם
+   האתר = התנתקות אוטומטית, בדיוק כמו אפליקציית בנק: מי שעוזב מכשיר לא-נעול
+   ליד מישהו אחר לא משאיר את הנתונים הפיננסיים חשופים על המסך לצמיתות.
+   עוקבים אחרי אינטראקציה גולמית (עכבר/מגע/מקלדת/גלילה) על document כולו —
+   כולל בתוך sheet() פתוח, כי זה DOM רגיל שמבעבע (bubbles) לאותו listener,
+   בלי טיפול מיוחד כדי שמילוי טופס לא ייחשב בטעות "חוסר פעילות". הטיימר
+   פעיל רק כשיש CURRENT_USER (אחרי התחברות) — לפני זה אין מה לעקוב. */
+const IDLE_LIMIT_MS=5*60*1000;
+let idleTimer=null;
+function resetIdleTimer(){
+  if(!CURRENT_USER)return;
+  clearTimeout(idleTimer);
+  idleTimer=setTimeout(autoSignOutIdle,IDLE_LIMIT_MS);
+}
+['mousemove','mousedown','keydown','touchstart','scroll','wheel'].forEach(evt=>{
+  document.addEventListener(evt,resetIdleTimer,{passive:true});
+});
+async function autoSignOutIdle(){
+  // מסתירים את האפליקציה מיד — סינכרוני, לפני שממתינים לרשת ל-signOut —
+  // כדי שהנתונים הפיננסיים לא יישארו רגע נוסף על המסך במקרה הזה בדיוק
+  // (זו בדיוק הסיבה לתכונה: מכשיר לא-נעול שמישהו אחר יכול לגשת אליו)
+  try{sessionStorage.setItem('financeme_idle_msg','1');}catch(e){}
+  showLogin();
+  try{await sb.auth.signOut();}catch(e){}
+  CURRENT_USER=null;
+  location.reload();
+}
+
 document.querySelectorAll('nav button[data-p]').forEach(b=>{
   b.onclick=()=>{PAGE=b.dataset.p;selYM=null;render();};
 });
@@ -89,6 +118,7 @@ function boot(){
   el('setup').classList.add('hide');el('app').classList.remove('hide');
   el('nav').classList.remove('hide');el('fab').classList.remove('hide');
   genRecurring();genLoanPayments();render();
+  resetIdleTimer(); // מתחיל את שעון הנעילה האוטומטית מהרגע שהאפליקציה בפועל עלתה
 }
 (async function init(){
   const {data:{session}}=await sb.auth.getSession();
@@ -96,7 +126,16 @@ function boot(){
     CURRENT_USER=session.user;
     await startApp();
   }else{
-    showLogin();
+    // הודעת "התנתקת מחוסר פעילות" שורדת את ה-reload של autoSignOutIdle() דרך
+    // sessionStorage (לא localStorage בכוונה — לא אמורה להישאר אחרי סגירת הטאב)
+    let idleMsg=null;
+    try{
+      if(sessionStorage.getItem('financeme_idle_msg')){
+        idleMsg='התנתקת אוטומטית אחרי 5 דקות בלי שימוש — מתחבר שוב.';
+        sessionStorage.removeItem('financeme_idle_msg');
+      }
+    }catch(e){}
+    showLogin(idleMsg);
   }
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_IN'&&session&&!CURRENT_USER){
