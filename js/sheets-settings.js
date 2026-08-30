@@ -126,8 +126,12 @@ function openBackupSettings(){
    // תנועות, יתרות, הלוואות. חייבים לומר את זה לפני שהמשתמש מפיץ אותו בטעות
    // (מייל, Drive משותף וכו').
    '<div class="note" style="margin-bottom:12px;color:var(--crit)">⚠️ קובץ הגיבוי מכיל את כל המידע הפיננסי שלך בטקסט גלוי, בלי הצפנה — שמור אותו רק במקום מאובטח (לא במייל או בתיקייה משותפת).</div>'+
-   '<div class="btnrow" style="margin-bottom:22px"><button class="btn sec" onclick="exportDB()">ייצא קובץ</button>'+
+   '<div class="btnrow" style="margin-bottom:12px"><button class="btn sec" onclick="exportDB()">ייצא קובץ (JSON)</button>'+
    '<button class="btn sec" onclick="el(\'impF\').click()">ייבא קובץ</button></div>'+
+   // CSV נפרד מה-JSON בכוונה: ה-JSON הוא גיבוי מלא-משוחזר (כולל הגדרות/כרטיסים/הלוואות,
+   // מיובא בחזרה דרך importDB), ה-CSV הוא רק טבלת התנועות עצמן, לצפייה/סינון באקסל —
+   // לא מיועד לייבוא בחזרה
+   '<button class="btn sec" style="margin-bottom:22px" onclick="exportCSV()">ייצא תנועות ל-CSV (לפתיחה באקסל)</button>'+
    '<input type="file" id="impF" accept=".json" style="display:none" onchange="importDB(this)"/>'+
    '<div class="dangerzone"><div class="dztitle">⚠️ אזור מסוכן</div>'+
    '<div class="note" style="margin-bottom:12px">איפוס ימחק את כל הנתונים המקומיים במכשיר הזה — תנועות, קטגוריות, הלוואות, יעדים וכל ההגדרות. הנתונים בענן (אם מחוברים) לא נמחקים — תתחבר שוב כדי לשחזר אותם.</div>'+
@@ -172,6 +176,28 @@ function exportDB(){
   const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);
   a.download='financeme-'+iso(today())+'.json';a.click();toast('הגיבוי הורד');
+}
+/* ייצוא תנועות ל-CSV — מהביקורת המקצועית: JSON מצוין לגיבוי-ושחזור, אבל משתמש
+   שרוצה סתם להסתכל על התנועות שלו (לסנן, למיין, לסכם) באקסל/Sheets אין לו איך
+   בלי להמיר ידנית. טבלה שטוחה בלבד, לא מיועדת לייבוא בחזרה (בניגוד ל-JSON). */
+function csvField(v){
+  const s=String(v==null?'':v);
+  return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function exportCSV(){
+  const rows=[['תאריך','תאריך חיוב','כיוון','סכום','קטגוריה','הערה','אמצעי תשלום']];
+  DB.transactions.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(x=>{
+    const c=CALC.cat(x.categoryId),cd=x.cardId?CALC.card(x.cardId):null;
+    const method=cd?cd.name:(x.method==='cash'?'מזומן':'עו"ש');
+    rows.push([x.date,x.chargeDate,x.direction==='in'?'הכנסה':'הוצאה',x.amount,c.name,x.note||'',method]);
+  });
+  // ﻿ (BOM) בתחילת הקובץ — בלעדיו אקסל פותח UTF-8 עם עברית כג'יבריש (מזהה
+  // ברירת מחדל כ-ANSI/Windows-1255 בלי ה-BOM); עם \r\n בין שורות כי זה מה שאקסל
+  // בווינדוס מצפה לו, לא \n בלבד
+  const csv='\uFEFF'+rows.map(r=>r.map(csvField).join(',')).join('\r\n');
+  const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='financeme-tnuot-'+iso(today())+'.csv';a.click();toast('קובץ ה-CSV הורד');
 }
 function importDB(inp){
   const f=inp.files[0];if(!f)return;
