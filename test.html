@@ -184,6 +184,37 @@ scenario('מנוע הלוואות — הלוואה בריבית 0% (בדיקת �
   eq(Math.round(calc.totalBalance), 6000, '6 חודשים חלפו מתחילת ההלוואה → נשארה מחצית');
 });
 
+scenario('migrate() — ניקוי רשומות יתומות (goalId/loanId שמצביעים על משהו שנמחק)', () => {
+  // מבחן כללי, מהביקורת המקצועית: אותה משפחת באג חזרה שלוש פעמים (הוראת קבע,
+  // יעד חיסכון, הלוואה) — מחיקת "הורה" שהשאירה תנועות "ילד" יתומות שממשיכות
+  // להשפיע על היתרה. במקום לחכות לדיווח על המקרה הבא, בודקים כאן ישירות שכל
+  // סוגי ההפניה היתומות מטופלות נכון על ידי migrate() (שרץ אוטומטית בכל טעינה).
+  const D = freshDB();
+  D.categories = DEFAULT_CATS.slice();
+  D.goals = [{id:'gLive', name:'יעד קיים', type:'personal', targetAmount:1000, saved:0, monthlyPlan:0, createdDate:'2026-01-01', priority:1}];
+  D.loans = [];
+  D.recurring = [{id:'recLive', name:'הוראה קיימת', amount:100, categoryId:'c_save', method:'account', cardId:null,
+    dayOfMonth:1, startDate:'2026-01-01', endDate:null, active:true, direction:'out', installmentTotal:null, goalId:null}];
+  D.transactions = [
+    // הפקדה ידנית ליעד שנמחק (בלי recurringId) — צריכה להימחק לגמרי
+    {id:'orphanManual', direction:'out', amount:500, date:'2026-06-10', chargeDate:'2026-06-10', categoryId:'c_save', method:'account', cardId:null, note:'הפקדה ישנה', installment:null, recurringId:null, incomeType:null, goalId:'goalDeleted'},
+    // הפקדה מהוראת קבע פעילה, ליעד שנמחק — צריכה להישאר, רק goalId מתנקה
+    {id:'recLinkedToDeletedGoal', direction:'out', amount:100, date:'2026-06-01', chargeDate:'2026-06-01', categoryId:'c_save', method:'account', cardId:null, note:'הוראה קיימת', installment:null, recurringId:'recLive', incomeType:null, goalId:'goalDeleted'},
+    // הפקדה ליעד שכן קיים — לא אמורה להיגע
+    {id:'liveGoalTx', direction:'out', amount:300, date:'2026-06-05', chargeDate:'2026-06-05', categoryId:'c_save', method:'account', cardId:null, note:'הפקדה תקינה', installment:null, recurringId:null, incomeType:null, goalId:'gLive'},
+    // תשלום הלוואה שנמחקה — צריך להימחק לגמרי, גם מחודש עבר
+    {id:'orphanLoan', direction:'out', amount:735, date:'2026-05-05', chargeDate:'2026-05-05', categoryId:'c_loan', method:'account', cardId:null, note:'הלוואה שנמחקה', installment:null, recurringId:null, incomeType:null, goalId:null, loanId:'loanDeleted'}
+  ];
+  migrate();
+  const ids = D.transactions.map(t=>t.id);
+  eq(ids.includes('orphanManual'), false, 'הפקדה ידנית יתומה (בלי הוראת קבע) נמחקת לגמרי');
+  eq(ids.includes('orphanLoan'), false, 'תשלום הלוואה יתום נמחק לגמרי, גם מחודש עבר');
+  eq(ids.includes('recLinkedToDeletedGoal'), true, 'הפקדה מהוראת קבע פעילה נשארת (ההוראה ממשיכה לרוץ קדימה)');
+  const recTx = D.transactions.find(t=>t.id==='recLinkedToDeletedGoal');
+  eq(recTx ? recTx.goalId : 'missing', null, 'ה-goalId שלה מתנקה ל-null במקום להישאר מצביע על יעד שלא קיים');
+  eq(ids.includes('liveGoalTx'), true, 'תנועה של יעד קיים לא נפגעת');
+});
+
 window.today = realToday;
 
 const summary=document.getElementById('summary');
