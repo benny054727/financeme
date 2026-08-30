@@ -188,6 +188,13 @@ const DEFAULT_CATS=[
  {id:'c_other_in',name:'הכנסה נוספת',icon:'➕',kind:'income',budget:0}
 ];
 function blank(){return{
+ // version נשאר 1 בכוונה, למרות עשרות שינויי סכימה שקרו מאז (ראו migrate()) —
+ // התפקיד שלו הוא לא "לגרסא" מיגרציות (migrate() עושה את זה בעצמו, באמצעות
+ // בדיקות-נוכחות אידמפוטנטיות כמו !Array.isArray(...)/===undefined, לא guard
+ // לפי מספר גרסה), אלא רק "האם זה בכלל JSON של FinanceMe": load()/loadFromCloud()/
+ // importDB() כולם דוחים קובץ בלי version, וה-CHECK constraint בענן (Supabase)
+ // אוכף את זה גם בשרת. אם בעתיד יתווסף guard-לפי-גרסה אמיתי למיגרציה, זה השדה
+ // להעלות — עד אז, העלאה שלו לא הייתה משנה שום התנהגות בפועל.
  version:1,
  settings:{currency:'ILS',overdraftLimit:0,safetyBuffer:1000,monthlyExpenseTarget:0,boiRate:0,boiRateUpdated:null,loansAffectBalance:true,
    alertThresholds:{budgetWarn:85,cardDeviation:25,lowBalanceDays:7}},
