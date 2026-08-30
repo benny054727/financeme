@@ -54,11 +54,18 @@ function vCards(){
     const cy=CALC.cycle(c.id);
     const grad=['linear-gradient(135deg,#4f46e5,#7c3aed)','linear-gradient(135deg,#d97706,#f59e0b)','linear-gradient(135deg,#059669,#10b981)','linear-gradient(135deg,#0891b2,#06b6d4)'][i%4];
     const usePct=c.limit>0?Math.min(100,(cy.used/c.limit)*100):0;
+    // "0₪" בלי הסבר כשאין תאריך חיוב קרוב היה נראה כמו נתון (חיוב של אפס שקלים),
+    // לא כמו "אין נתון" — קו מפריד ("—") ברור יותר. שני מצבי-ריק שונים: כרטיס
+    // שמעולם לא נעשה בו שימוש, מול כרטיס שכן נמצא בשימוש אבל הכל כבר "נסגר"
+    // בחיוב קודם ושום דבר חדש עוד לא נכנס למחזור הבא — הודעות שונות לכל אחד.
+    const noCycle=!cy.nextDate;
+    const everUsed=noCycle?DB.transactions.some(x=>x.cardId===c.id):true;
     h+='<div class="cc" style="background:'+grad+'" onclick="cardDetail(\''+c.id+'\')">'+
        '<div class="ccbdg">'+esc(brandName(c.brand))+'</div><div class="ccchip">💎</div>'+
        '<div class="ccname">'+esc(c.name)+'</div><div class="ccnum">•••• '+esc(c.last4||'____')+'</div>'+
-       '<div class="ccfoot"><div><div class="cclbl">חיוב קרוב'+(cy.nextDate?' · '+dLabel(cy.nextDate):'')+'</div><div class="ccamt">'+fmt(cy.nextAmount)+'</div></div>'+
-       '<div class="ccopen"><div class="cclbl">צבירה פתוחה</div><div class="ccamt" style="font-size:15px">'+fmt(cy.open)+'</div></div></div>'+
+       '<div class="ccfoot"><div><div class="cclbl">חיוב קרוב'+(cy.nextDate?' · '+dLabel(cy.nextDate):'')+'</div><div class="ccamt">'+(noCycle?'—':fmt(cy.nextAmount))+'</div></div>'+
+       '<div class="ccopen"><div class="cclbl">צבירה פתוחה</div><div class="ccamt" style="font-size:15px">'+(noCycle?'—':fmt(cy.open))+'</div></div></div>'+
+       (noCycle?'<div class="cclbl" style="margin-top:8px;opacity:.85">'+(everUsed?'הכל כבר נכלל בחיוב הקודם — שום דבר חדש עוד לא נרשם':'עדיין לא נרשמה עסקה בכרטיס הזה')+'</div>':'')+
        (c.limit>0?'<div class="ccbar"><i style="width:'+usePct+'%"></i></div><div class="cclbl" style="margin-top:6px">'+fmt(cy.used)+' מתוך מסגרת '+fmt(c.limit)+'</div>':'')+
        '</div>';
   });

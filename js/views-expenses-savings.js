@@ -195,7 +195,9 @@ function goalCard(g){
    עם נקודת פתיחה בערך שהוזן ידנית בעת יצירת הקרן ("כבר נצבר") */
 function goalGrowthChart(g){
   const txs=DB.transactions.filter(t=>t.goalId===g.id).sort((a,b)=>a.date<b.date?-1:1);
-  if(!txs.length)return '';
+  // קרן חדשה בלי אף הפקדה הייתה פשוט "חסרה" את הגרף בלי שום סימן שהוא בכלל אמור
+  // להופיע — מרגיש כמו חלק שבור, לא כמו "עדיין אין נתונים". מצב-ריק מפורש במקום.
+  if(!txs.length)return '<div class="mini" style="margin-top:13px;padding:12px;border:1.5px dashed var(--border);border-radius:12px;text-align:center">עדיין אין הפקדות לקרן הזו — אחרי ההפקדה הראשונה (כפתור "הפקד" למעלה) יופיע כאן גרף הצמיחה שלה</div>';
   const depositsSum=txs.reduce((s,t)=>s+t.amount,0);
   const start=g.createdDate||txs[0].date;
   let bal=Math.max(0,g.saved-depositsSum);
