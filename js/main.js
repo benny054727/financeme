@@ -86,20 +86,38 @@ setInterval(refreshAutoTheme,60000);
    נעילה אוטומטית מחוסר פעילות (אבטחה) — 5 דקות בלי שום אינטראקציה עם
    האתר = התנתקות אוטומטית, בדיוק כמו אפליקציית בנק: מי שעוזב מכשיר לא-נעול
    ליד מישהו אחר לא משאיר את הנתונים הפיננסיים חשופים על המסך לצמיתות.
-   עוקבים אחרי אינטראקציה גולמית (עכבר/מגע/מקלדת/גלילה) על document כולו —
-   כולל בתוך sheet() פתוח, כי זה DOM רגיל שמבעבע (bubbles) לאותו listener,
-   בלי טיפול מיוחד כדי שמילוי טופס לא ייחשב בטעות "חוסר פעילות". הטיימר
-   פעיל רק כשיש CURRENT_USER (אחרי התחברות) — לפני זה אין מה לעקוב. */
+
+   גרסה ראשונה הסתמכה על setTimeout(...,5*60*1000) בודד — לא עבד בפועל
+   ("לא מתנתק אפילו כשיוצא מהדף וחוזר") כי דפדפנים (בעיקר מובייל) מדכאים/
+   מעכבים טיימרים בטאב שברקע (background tab throttling), אז ה-setTimeout
+   פשוט לא נורה בזמן; ואז בחזרה לטאב, האינטראקציה עצמה (touchstart/click
+   שמחזיר פוקוס) הייתה מאפסת את הטיימר *לפני* שהספיק לירות — נראה כאילו
+   "לא קרה כלום" אחרי כל יציאה-וחזרה, גם אם עברו הרבה יותר מ-5 דקות בפועל.
+
+   הפתרון: לא מסתמכים על תזמון מדויק של טיימר יחיד. שומרים חותמת-זמן אמיתית
+   (Date.now()) של הפעילות האחרונה, ובודקים "כמה זמן באמת עבר" בכל הזדמנות —
+   גם ב-interval תקופתי (כל 15 שניות כשהטאב גלוי), וגם (הכי קריטי) ב-
+   visibilitychange בדיוק ברגע שהטאב חוזר לגלוי, לפני שכל אינטראקציה נוספת
+   מספיקה "להציל" אותו. כך גם אם הדפדפן דחה/דילג על טיימרים ברקע, ברגע
+   שחוזרים לטאב נבדק מיד "כמה זמן אמיתי עבר" ומתנתקים אם צריך — לא תלוי
+   בזה שאיזשהו טיימר "יזכור" לירות בדיוק בזמן. */
 const IDLE_LIMIT_MS=5*60*1000;
-let idleTimer=null;
-function resetIdleTimer(){
+let lastActivity=Date.now();
+function markActivity(){
   if(!CURRENT_USER)return;
-  clearTimeout(idleTimer);
-  idleTimer=setTimeout(autoSignOutIdle,IDLE_LIMIT_MS);
+  lastActivity=Date.now();
 }
 ['mousemove','mousedown','keydown','touchstart','scroll','wheel'].forEach(evt=>{
-  document.addEventListener(evt,resetIdleTimer,{passive:true});
+  document.addEventListener(evt,markActivity,{passive:true});
 });
+function checkIdle(){
+  if(!CURRENT_USER)return;
+  if(Date.now()-lastActivity>=IDLE_LIMIT_MS)autoSignOutIdle();
+}
+// הבדיקה החשובה ביותר: בדיוק כשהטאב חוזר להיות גלוי (יציאה-וחזרה, מעבר בין
+// אפליקציות בטלפון וכו') — לפני שהמשתמש הספיק לגעת במסך ול"אפס" את הפעילות
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkIdle();});
+setInterval(checkIdle,15000);
 async function autoSignOutIdle(){
   // מסתירים את האפליקציה מיד — סינכרוני, לפני שממתינים לרשת ל-signOut —
   // כדי שהנתונים הפיננסיים לא יישארו רגע נוסף על המסך במקרה הזה בדיוק
@@ -118,7 +136,7 @@ function boot(){
   el('setup').classList.add('hide');el('app').classList.remove('hide');
   el('nav').classList.remove('hide');el('fab').classList.remove('hide');
   genRecurring();genLoanPayments();render();
-  resetIdleTimer(); // מתחיל את שעון הנעילה האוטומטית מהרגע שהאפליקציה בפועל עלתה
+  markActivity(); // מאפס את שעון הנעילה האוטומטית מהרגע שהאפליקציה בפועל עלתה
 }
 (async function init(){
   const {data:{session}}=await sb.auth.getSession();
