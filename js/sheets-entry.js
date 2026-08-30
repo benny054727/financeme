@@ -99,7 +99,7 @@ function renderCats(){
    עצמה (לא sheet מקונן, כי sheet() לא בנוי לערימה של כמה מסכים זה על זה) */
 function showAddCatInline(){
   const btn=el('catAddBtn');if(!btn)return;
-  btn.outerHTML='<div id="eCatAdd" style="grid-column:1/-1;border:1.5px dashed var(--border);border-radius:14px;padding:12px;background:#f8fafc">'+
+  btn.outerHTML='<div id="eCatAdd" style="grid-column:1/-1;border:1.5px dashed var(--border);border-radius:14px;padding:12px;background:var(--well)">'+
     '<div class="row2"><select id="eCatIcon" style="flex:0 0 62px">'+ICONS.map(i=>'<option value="'+i+'">'+i+'</option>').join('')+'</select>'+
     '<input id="eCatName" type="text" placeholder="שם הקטגוריה החדשה" style="flex:1"/></div>'+
     '<div class="btnrow" style="margin-top:8px"><button type="button" class="btn sec" style="padding:10px;font-size:13px" onclick="renderCats()">ביטול</button>'+

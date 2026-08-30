@@ -2,6 +2,11 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
+<!-- מצב כהה: מפעילים data-theme על <html> כמה שיותר מוקדם, לפני שה-CSS בכלל
+     נטען — אחרת המשתמש שבחר "כהה" ידנית רואה הבזק של המצב הבהיר לפני שהעדפתו
+     נטענת (localStorage). הפונקציות המלאות (applyTheme/toggleTheme/וכו') הן
+     ב-main.js; זה רק ה"קדימה" הקריטי-לתזמון. -->
+<script>(function(){try{var t=localStorage.getItem('financeme_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#2563eb"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -41,7 +46,7 @@
   <div class="blob b1"></div><div class="blob b2"></div>
   <div class="hinner">
     <div class="brand"><div class="bicon">💰</div><div class="bname">FinanceMe</div></div>
-    <div class="hbtns"><button id="syncBadge" title="מסנכרן..." aria-label="מסנכרן..." onclick="handleSyncBadgeClick()">⏳</button><button class="hbtn" onclick="openSettings()" aria-label="הגדרות">⚙️</button></div>
+    <div class="hbtns"><button id="syncBadge" title="מסנכרן..." aria-label="מסנכרן..." onclick="handleSyncBadgeClick()">⏳</button><button id="themeToggle" class="hbtn" onclick="toggleTheme()" aria-label="החלף מצב כהה/בהיר">🌙</button><button class="hbtn" onclick="openSettings()" aria-label="הגדרות">⚙️</button></div>
   </div>
   <div class="htitle"><h1 id="ptitle"></h1><p id="psub"></p></div>
 </header>

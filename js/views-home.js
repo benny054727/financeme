@@ -35,9 +35,9 @@ function render(){
   afterRender();
 }
 function conflictBannerHTML(){
-  return '<div class="box" style="border:1.5px solid #fecaca;background:#fef2f2;display:flex;align-items:center;gap:14px;flex-wrap:wrap">'+
+  return '<div class="box" style="border:1.5px solid var(--crit-line);background:var(--crit-bg);display:flex;align-items:center;gap:14px;flex-wrap:wrap">'+
    '<div style="font-size:22px;flex:none" aria-hidden="true">🔀</div>'+
-   '<div style="flex:1;min-width:200px"><b style="display:block;font-size:14px;color:#b91c1c;margin-bottom:2px">שינוי ממכשיר אחר לא סונכרן</b><span class="mini">מכשיר אחר שמר שינויים שהמסך הזה עוד לא ראה. עדכונים חדשים לא יישלחו לענן עד שתפתור את זה.</span></div>'+
+   '<div style="flex:1;min-width:200px"><b style="display:block;font-size:14px;color:var(--crit-ink);margin-bottom:2px">שינוי ממכשיר אחר לא סונכרן</b><span class="mini">מכשיר אחר שמר שינויים שהמסך הזה עוד לא ראה. עדכונים חדשים לא יישלחו לענן עד שתפתור את זה.</span></div>'+
    '<button class="btn dgr" style="width:auto;padding:11px 20px;flex:none" onclick="handleSyncBadgeClick()">פתור עכשיו</button>'+
    '</div>';
 }
@@ -135,7 +135,7 @@ function expenseTrendChart(){
   const W=320,H=120,baseY=84,maxH=54;
   const slotW=W/6,barW=8,barGap=3,groupW=barW*3+barGap*2,groupOff=(slotW-groupW)/2;
   let bars='<g font-family="Heebo">';
-  bars+='<line x1="2" y1="'+baseY+'" x2="'+(W-2)+'" y2="'+baseY+'" stroke="#eef1f6" stroke-width="1"/>';
+  bars+='<line x1="2" y1="'+baseY+'" x2="'+(W-2)+'" y2="'+baseY+'" stroke="var(--border)" stroke-width="1"/>';
   months.forEach((y,i)=>{
     const isCur=y===curYM();
     const gx=slotW*i+groupOff;
@@ -143,13 +143,13 @@ function expenseTrendChart(){
     const sgv=savGoalVals[i],sgh=mx?Math.round((sgv/mx)*maxH):0;
     const sfv=savFundVals[i],sfh=mx?Math.round((sfv/mx)*maxH):0;
     const expFill=isCur?'#f6b8b8':'#e5383b',savFill=isCur?'#c8b3f5':'#7c3aed',fundFill=isCur?'#a8dde6':'#0891b2';
-    const mLbl=isCur?'#2563eb':'#94a3b8';
+    const mLbl=isCur?'var(--balance)':'var(--faint)';
     const x1=gx,x2=gx+barW+barGap,x3=gx+(barW+barGap)*2;
     bars+=(eh?'<rect x="'+x1+'" y="'+(baseY-eh)+'" width="'+barW+'" height="'+eh+'" rx="1.5" fill="'+expFill+'"/>':'')+
       (sgh?'<rect x="'+x2+'" y="'+(baseY-sgh)+'" width="'+barW+'" height="'+sgh+'" rx="1.5" fill="'+savFill+'"/>':'')+
       (sfh?'<rect x="'+x3+'" y="'+(baseY-sfh)+'" width="'+barW+'" height="'+sfh+'" rx="1.5" fill="'+fundFill+'"/>':'')+
       '<text x="'+(gx+groupW/2)+'" y="'+(baseY+16)+'" text-anchor="middle" font-size="9" font-weight="'+(isCur?'800':'600')+'" fill="'+mLbl+'">'+esc(ymShort(y))+'</text>'+
-      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="#94a3b8">עד כה</text>':'');
+      (isCur?'<text x="'+(gx+groupW/2)+'" y="'+(baseY+29)+'" text-anchor="middle" font-size="7" fill="var(--faint)">עד כה</text>':'');
   });
   bars+='</g>';
   const legItem=(color,label,val)=>'<span style="display:inline-flex;align-items:center;gap:6px;margin-inline-start:16px"><span style="width:9px;height:9px;border-radius:2.5px;background:'+color+';display:inline-block;flex:none"></span><span class="mini">'+label+'</span><b style="font-size:13px;color:'+color+'">'+fmt(val)+'</b></span>';

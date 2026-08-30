@@ -252,11 +252,14 @@ function donut(items,total){
   // it.click (אופציונלי) — שם קריאת פונקציה (מחרוזת) שתופעל בלחיצה, גם על הפלח בעוגה
   // וגם על השורה במקרא. בלי זה (למשל בעוגת "חלוקת החודש" בדף הבית) הכל נשאר לא-לחיץ
   const r=38,cx=50,cy=50,sw=15,circ=2*Math.PI*r;let off=0,svg='';
-  svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" stroke-width="15"/>';
+  svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="var(--well)" stroke-width="15"/>';
   items.forEach(it=>{const p=total?it.v/total:0;
     svg+='<circle cx="50" cy="50" r="38" fill="none" stroke="'+it.c+'" stroke-width="15" stroke-dasharray="'+(p*circ)+' '+circ+'" stroke-dashoffset="'+(-off*circ)+'" transform="rotate(-90 50 50)"'+(it.click?' style="cursor:pointer" onclick="'+it.click+'"':'')+'/>';off+=p;});
-  svg+='<text x="50" y="47" text-anchor="middle" font-size="8" fill="#64748b" font-family="Heebo">סה"כ</text>';
-  svg+='<text x="50" y="59" text-anchor="middle" font-size="10" fill="#0f172a" font-weight="bold" font-family="Heebo">'+fmt(total)+'</text>';
+  // fill="var(--...)" — לא ליטרל: הטקסט הזה יושב על .surface של הכרטיס, שמשתנה
+  // בין בהיר/כהה (ראו --text/--muted ב-style.css), אחרת בכהה זה טקסט כמעט-שחור
+  // על רקע כמעט-שחור
+  svg+='<text x="50" y="47" text-anchor="middle" font-size="8" fill="var(--muted)" font-family="Heebo">סה"כ</text>';
+  svg+='<text x="50" y="59" text-anchor="middle" font-size="10" fill="var(--text)" font-weight="bold" font-family="Heebo">'+fmt(total)+'</text>';
   return '<svg class="dsvg" viewBox="0 0 100 100">'+svg+'</svg><div class="dleg">'+
     items.map(it=>'<div class="ditem"'+(it.click?' style="cursor:pointer" onclick="'+it.click+'"':'')+'><div class="dlbl"><span class="ddot" style="background:'+it.c+'"></span>'+it.n+'</div>'+
     '<div class="dval">'+fmt(it.v)+' · '+Math.round(total?it.v/total*100:0)+'%</div></div>').join('')+'</div>';
