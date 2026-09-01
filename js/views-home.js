@@ -44,7 +44,14 @@ function conflictBannerHTML(){
 
 /* ---------- HOME ---------- */
 function vHome(){
-  const y=curYM(),m=CALC.month(y),av=CALC.available(),A=alerts();
+  // בורר שנה+חודש (אותו selYM/shiftPickerYear בדיוק כמו בדף הוצאות — main.js
+  // מאפס אותו ל-null בכל מעבר בין דפים, אז לא צריך לדאוג שבחירה בדף הבית
+  // "תדלוף" לדף הוצאות או להפך) — כדי שאפשר יהיה לראות הוצאות/תנועות של
+  // חודש קודם, לא רק של החודש הנוכחי. יתרה בבנק ותחזית לסוף החודש נשארות
+  // תמיד לפי הרגע האמיתי (av/forecastEnd למטה) — אין להן משמעות "עבור חודש
+  // שכבר נגמר", אז הן מוצגות רק כשבוחרים בחודש הנוכחי (isCurMonth).
+  const y=selYM||curYM(),isCurMonth=y===curYM();
+  const m=CALC.month(y),av=CALC.available(),A=alerts();
   // הלוואה = הוצאה חודשית קבועה עד שנגמרת — נספרת בכל מקום שמסכם "כמה יורד כל חודש".
   // m.loan (מתנועות אמיתיות, genLoanPayments) ולא LOANS.allMonthlyTotal() החי — כדי
   // שלא יסתור את av.balance/monthEnd שכבר כוללים את אותן תנועות (ראו CALC.monthEnd())
@@ -69,15 +76,36 @@ function vHome(){
      '<div style="margin-right:auto;text-align:left;flex-shrink:0">'+
        '<div id="liveClock" style="font-size:17px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums">'+israelTimeString()+'</div>'+
        '<div class="mini">שעון ישראל</div></div></div>';
-  h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>תחזית לסוף החודש</div>'+
-     '<div class="hamt '+(forecastEnd<0?'neg':'')+'">'+fmtS(forecastEnd)+'</div>'+
-     '<div class="hrow">'+
-     '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
-     (minIncome>0?'<div class="hcell"><div class="cl">לפני הכנסה צפויה</div><div class="cv" style="color:'+(forecastBeforeIncome<0?'var(--expense)':'var(--income)')+'">'+fmtS(forecastBeforeIncome)+'</div></div>':'')+
-     '</div>'+
-     '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש ('+fmt(m.out+loanPay+m.saving)+')'+
-     (minIncome>0?', בתוספת ההכנסה החודשית המינימלית שהגדרת ('+fmt(minIncome)+'). "לפני הכנסה צפויה" מציג את אותו חישוב בלי התוספת הזו.':'.')+'</div>'+
-     '</div>';
+  // בורר החודש עצמו — זהה בדיוק לזה שבדף הוצאות (.ybar/.mbar/shiftPickerYear
+  // המשותפים), כדי שלא יהיו שני קומפוננטים שונים לאותו רעיון באפליקציה אחת
+  const pickYear=+y.slice(0,4),curYear=+curYM().slice(0,4);
+  h+='<div class="ybar"><button class="ynav" onclick="shiftPickerYear(-1)" aria-label="שנה קודמת">›</button>'+
+    '<div class="ylbl">'+pickYear+'</div>'+
+    '<button class="ynav" onclick="shiftPickerYear(1)" '+(pickYear>=curYear?'disabled':'')+' aria-label="שנה הבאה">‹</button></div>';
+  h+='<div class="mbar">';
+  for(let mo=1;mo<=12;mo++){
+    const mm=pickYear+'-'+String(mo).padStart(2,'0');
+    if(mm>curYM())break;
+    h+='<button class="mbtn '+(mm===y?'active':'')+'" onclick="selYM=\''+mm+'\';render()">'+MON_S[mo-1]+'</button>';
+  }
+  h+='</div>';
+  if(isCurMonth){
+    h+='<div class="hero"><div class="hlbl"><span class="dot" style="background:var(--balance)"></span>תחזית לסוף החודש</div>'+
+       '<div class="hamt '+(forecastEnd<0?'neg':'')+'">'+fmtS(forecastEnd)+'</div>'+
+       '<div class="hrow">'+
+       '<div class="hcell"><div class="cl">יתרה בבנק</div><div class="cv">'+fmtS(av.balance)+'</div></div>'+
+       (minIncome>0?'<div class="hcell"><div class="cl">לפני הכנסה צפויה</div><div class="cv" style="color:'+(forecastBeforeIncome<0?'var(--expense)':'var(--income)')+'">'+fmtS(forecastBeforeIncome)+'</div></div>':'')+
+       '</div>'+
+       '<div class="mini" style="margin-top:12px;line-height:1.6">💡 יתרה בבנק ('+fmt(av.balance)+') פחות כל ההוצאות הקבועות, המשתנות, ההלוואה וההפקדה לחיסכון שנרשמו החודש ('+fmt(m.out+loanPay+m.saving)+')'+
+       (minIncome>0?', בתוספת ההכנסה החודשית המינימלית שהגדרת ('+fmt(minIncome)+'). "לפני הכנסה צפויה" מציג את אותו חישוב בלי התוספת הזו.':'.')+'</div>'+
+       '</div>';
+  }else{
+    // חודש שכבר נגמר: אין "יתרה בבנק"/"תחזית" משלו (אלה תמיד נכון-לרגע-זה,
+    // לא נתון היסטורי ששמור לכל חודש בנפרד) — במקום זה הערה קצרה שמסבירה למה,
+    // וכל שאר הכרטיסים למטה (הכנסות/הוצאות/יעד/עוגה/תנועות) כן מוצגים לפי m
+    // (CALC.month(y)) ומספרים את הסיפור המלא של החודש הזה בעצמו.
+    h+='<div class="box" style="padding:14px 16px"><div class="mini" style="line-height:1.6">📅 מציג את נתוני <b>'+ymLabel(y)+'</b>. "יתרה בבנק" ו"תחזית לסוף החודש" מוצגות רק עבור החודש הנוכחי — הן תמיד נכון-לרגע-זה ולא נשמרות כנתון היסטורי לכל חודש.</div></div>';
+  }
   // kpiwrap עוטף את הכרטיס + ההערה מתחתיו כיחידה אחת — כדי שברשת הדו-טורית
   // (מסך רחב) הם לא ייקרעו זה מזה בשבירת עמודה, וההערה לא תישאר לבד בראש עמודה
   h+='<div class="kpiwrap"><div class="kpi">'+
@@ -87,7 +115,10 @@ function vHome(){
      '</div>'+
      (loanPay>0?'<div class="mini">💡 "הוצאות" כולל '+fmt(loanPay)+' החזרי הלוואות ו-'+fmt(m.saving)+' הפקדה לחיסכון החודש</div>':'')+
      '</div>';
-  if(A.length){
+  // התראות — תמיד לפי המצב האמיתי עכשיו (לא לפי החודש שבחרת לעיין בו), אז
+  // מוצגות רק כשבוחרים בחודש הנוכחי — אחרת התראה על "עכשיו" הייתה מופיעה
+  // בתוך מסך שסוקר חודש שכבר נגמר, ומבלבלת לגבי לְמה בדיוק היא מתייחסת
+  if(isCurMonth&&A.length){
     h+='<div class="box"><div class="stitle"><span>🔔</span> התראות ותובנות<span class="sright">'+A.length+'</span></div>';
     h+='<div class="alertsWrap" onscroll="updAlertDots(this)" onwheel="alertWheel(event,this)">'+A.map(a=>'<div class="alertSlide"><div class="alert a-'+a.s+'"><div class="aic">'+a.i+'</div><div class="atx"><b>'+esc(a.t)+'</b>'+esc(a.d)+'</div></div></div>').join('')+'</div>';
     if(A.length>1)h+='<div class="alertDots">'+A.map((_,i)=>'<span class="adot'+(i===0?' on':'')+'" onclick="scrollToAlert(this)"></span>').join('')+'</div>';
@@ -96,7 +127,7 @@ function vHome(){
   const target=DB.settings.monthlyExpenseTarget||0;
   if(target>0){
     const spent=m.fixed+m.variable+loanPay+m.saving,tpct=Math.min(100,Math.round((spent/target)*100));
-    h+='<div class="box"><div class="stitle"><span>🎯</span> יעד הוצאות חודשי</div>'+
+    h+='<div class="box"><div class="stitle"><span>🎯</span> יעד הוצאות חודשי'+(isCurMonth?'':' — '+ymLabel(y))+'</div>'+
        '<div class="barout"><div class="barin '+(spent>target?'hi':tpct>85?'mid':'')+'" data-w="'+tpct+'"></div></div>'+
        '<div class="barlbls"><span>₪0</span><span>'+fmt(target)+'</span></div>'+
        '<div class="barpct" style="color:'+(spent>target?'var(--expense)':tpct>85?'var(--warn)':'var(--income)')+'">'+tpct+'%</div>'+
@@ -104,20 +135,32 @@ function vHome(){
   }
   const split=[{n:'הוצאות קבועות',v:m.fixed,c:'#2563eb'},{n:'הלוואות',v:loanPay,c:'#d97706'},{n:'הוצאות משתנות',v:m.variable,c:'#e5383b'},{n:'חיסכון',v:m.saving,c:'#7c3aed'}].filter(x=>x.v>0);
   if(split.length){
-    h+='<div class="box"><div class="stitle"><span>🍩</span> חלוקת החודש</div><div class="dwrap">'+donut(split,split.reduce((s,x)=>s+x.v,0))+'</div></div>';
+    h+='<div class="box"><div class="stitle"><span>🍩</span> חלוקת החודש'+(isCurMonth?'':' — '+ymLabel(y))+'</div><div class="dwrap">'+donut(split,split.reduce((s,x)=>s+x.v,0))+'</div></div>';
   }
+  // גרף המגמה תמיד מציג את 6 החודשים האחרונים ביחס להיום (לא ביחס לחודש
+  // שבחרת לעיין בו) — הוא כבר משווה בין חודשים בעצמו, אז נשאר קבוע כהקשר-על
   h+=expenseTrendChart();
-  // בלי סינון "date<=היום": הוראות קבע/הלוואה/חיסכון של החודש הנוכחי נוצרות
-  // (genRecurring/genLoanPayments) מיד עם פתיחת החודש עבור כל התאריכים בו, גם
-  // אלה שיומם-בחודש עוד "לא הגיע" (למשל יום 1 בחודש ותנועה עם dayOfMonth=25) —
-  // בדיוק כמו שכל שאר האפליקציה (KPI, גרף מגמה, monthEnd) כבר מתייחסת אליהן
-  // כמנויות/אמיתיות מהרגע שנוצרו. סינון לפי "עד היום" כאן היה מסתיר בדיוק את
-  // התנועות האלה בתחילת כל חודש, וגורם לרשימה להיראות "תקועה" על החודש הקודם
-  // למרות שהכרטיסים למעלה כבר מציגים את מספרי החודש הנוכחי במלואם.
-  const recent=DB.transactions.slice().sort((a,b)=>b.date<a.date?-1:1).slice(0,6);
-  h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות אחרונות</div>';
-  h+=recent.length?recent.map(txRow).join(''):'<div class="empty"><b>עדיין אין תנועות</b>לחץ על + כדי לרשום את הראשונה</div>';
-  h+='</div>';
+  if(isCurMonth){
+    // בלי סינון "date<=היום": הוראות קבע/הלוואה/חיסכון של החודש הנוכחי נוצרות
+    // (genRecurring/genLoanPayments) מיד עם פתיחת החודש עבור כל התאריכים בו, גם
+    // אלה שיומם-בחודש עוד "לא הגיע" (למשל יום 1 בחודש ותנועה עם dayOfMonth=25) —
+    // בדיוק כמו שכל שאר האפליקציה (KPI, גרף מגמה, monthEnd) כבר מתייחסת אליהן
+    // כמנויות/אמיתיות מהרגע שנוצרו. סינון לפי "עד היום" כאן היה מסתיר בדיוק את
+    // התנועות האלה בתחילת כל חודש, וגורם לרשימה להיראות "תקועה" על החודש הקודם
+    // למרות שהכרטיסים למעלה כבר מציגים את מספרי החודש הנוכחי במלואם.
+    const recent=DB.transactions.slice().sort((a,b)=>b.date<a.date?-1:1).slice(0,6);
+    h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות אחרונות</div>';
+    h+=recent.length?recent.map(txRow).join(''):'<div class="empty"><b>עדיין אין תנועות</b>לחץ על + כדי לרשום את הראשונה</div>';
+    h+='</div>';
+  }else{
+    // חודש שנבחר מהבורר ואינו החודש הנוכחי: לא "6 אחרונות" (רעיון של פיד חי),
+    // אלא כל התנועות של אותו חודש עצמו — בדיוק כמו הרשימה בדף הוצאות, כדי
+    // שבאמת אפשר יהיה "לסגור" ולבדוק חודש שעבר מהבית ולא רק מדף הוצאות
+    const monthTx=DB.transactions.filter(x=>ym(x.date)===y).sort((a,b)=>b.date<a.date?-1:1);
+    h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות '+ymLabel(y)+'<span class="sright">'+monthTx.length+'</span></div>';
+    h+=monthTx.length?monthTx.map(txRow).join(''):'<div class="empty"><b>אין תנועות בחודש זה</b></div>';
+    h+='</div>';
+  }
   return h;
 }
 /* גרף מגמת הוצאות וחיסכון ל-6 חודשים אחרונים (פריט מהביקורת המקצועית — היה
