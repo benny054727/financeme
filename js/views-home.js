@@ -107,7 +107,14 @@ function vHome(){
     h+='<div class="box"><div class="stitle"><span>🍩</span> חלוקת החודש</div><div class="dwrap">'+donut(split,split.reduce((s,x)=>s+x.v,0))+'</div></div>';
   }
   h+=expenseTrendChart();
-  const recent=DB.transactions.filter(x=>x.date<=iso(today())).sort((a,b)=>b.date<a.date?-1:1).slice(0,6);
+  // בלי סינון "date<=היום": הוראות קבע/הלוואה/חיסכון של החודש הנוכחי נוצרות
+  // (genRecurring/genLoanPayments) מיד עם פתיחת החודש עבור כל התאריכים בו, גם
+  // אלה שיומם-בחודש עוד "לא הגיע" (למשל יום 1 בחודש ותנועה עם dayOfMonth=25) —
+  // בדיוק כמו שכל שאר האפליקציה (KPI, גרף מגמה, monthEnd) כבר מתייחסת אליהן
+  // כמנויות/אמיתיות מהרגע שנוצרו. סינון לפי "עד היום" כאן היה מסתיר בדיוק את
+  // התנועות האלה בתחילת כל חודש, וגורם לרשימה להיראות "תקועה" על החודש הקודם
+  // למרות שהכרטיסים למעלה כבר מציגים את מספרי החודש הנוכחי במלואם.
+  const recent=DB.transactions.slice().sort((a,b)=>b.date<a.date?-1:1).slice(0,6);
   h+='<div class="box"><div class="stitle"><span>🕐</span> תנועות אחרונות</div>';
   h+=recent.length?recent.map(txRow).join(''):'<div class="empty"><b>עדיין אין תנועות</b>לחץ על + כדי לרשום את הראשונה</div>';
   h+='</div>';
